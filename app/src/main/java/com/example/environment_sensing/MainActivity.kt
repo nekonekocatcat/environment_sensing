@@ -21,6 +21,11 @@ import android.bluetooth.le.ScanResult
 import androidx.compose.ui.unit.dp
 import pub.devrel.easypermissions.EasyPermissions
 
+// ★ 1. LittleEndianでUInt16を取得する拡張関数
+fun ByteArray.getLittleEndianUInt16(index: Int): Int {
+    return (this[index].toInt() and 0xFF) or ((this[index + 1].toInt() and 0xFF) shl 8)
+}
+
 class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
 
     private lateinit var bleApi: BLEApi
@@ -43,11 +48,9 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
                         onClick = {
                             Log.d("main", "スキャンボタン押された")
 
-                            // パーミッションがあるかチェック
                             if (EasyPermissions.hasPermissions(this, *bleApi.permissions)) {
-                                startScan()  // スキャン開始！
+                                startScan()
                             } else {
-                                // パーミッションを要求
                                 EasyPermissions.requestPermissions(
                                     this,
                                     "BLEスキャンにはパーミッションが必要です",
@@ -63,18 +66,15 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
         }
     }
 
-    // パーミッションが許可された時に呼ばれる
     override fun onPermissionsGranted(requestCode: Int, perms: List<String>) {
         Log.d("permission", "許可された: $perms")
-        startScan()  // 許可された後にスキャン開始！
+        startScan()
     }
 
-    // 拒否された場合
     override fun onPermissionsDenied(requestCode: Int, perms: List<String>) {
         Log.d("permission", "拒否された: $perms")
     }
 
-    // EasyPermissionsがこれ必要！
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<String>,
@@ -84,16 +84,48 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
         EasyPermissions.onRequestPermissionsResult(requestCode, permissions, grantResults, this)
     }
 
-    // BLEスキャン処理（共通化）
+    // ★ 2. アドバタイズメントデータからセンサーデータを取り出してログ表示
+    private fun parseAdvertisementData(advData: ByteArray) {
+        try {
+            val temperatureRaw = advData.getLittleEndianUInt16(9)
+            val humidityRaw = advData.getLittleEndianUInt16(11)
+            val lightRaw = advData.getLittleEndianUInt16(13)
+            val pressureRaw = advData.getLittleEndianUInt16(16)
+            val noiseRaw = advData.getLittleEndianUInt16(19)
+            val tvocRaw = advData.getLittleEndianUInt16(21)
+            val co2Raw = advData.getLittleEndianUInt16(23)
+
+            val temperature = temperatureRaw / 100.0
+            val humidity = humidityRaw / 100.0
+            val light = lightRaw
+            val pressure = pressureRaw / 10.0
+            val noise = noiseRaw / 100.0
+            val tvoc = tvocRaw
+            val co2 = co2Raw
+
+            Log.d("センサーデータ", "🌡 気温: ${temperature}℃")
+            Log.d("センサーデータ", "💧 湿度: ${humidity}%")
+            Log.d("センサーデータ", "💡 照度: ${light} lx")
+            Log.d("センサーデータ", "📈 気圧: ${pressure} hPa")
+            Log.d("センサーデータ", "🔊 騒音: ${noise} dB")
+            Log.d("センサーデータ", "🌫 TVOC: ${tvoc} ppb")
+            Log.d("センサーデータ", "🌬 CO2: ${co2} ppm")
+
+        } catch (e: Exception) {
+            Log.e("parseError", "パースに失敗: ${e.message}")
+        }
+    }
+
+    // ★ 3. startScanの中でparse呼び出し追加
     @OptIn(ExperimentalStdlibApi::class)
     private fun startScan() {
         bleApi.startBLEBeaconScan(this) { beacon: ScanResult? ->
             val mac = beacon?.device?.address
             val advData = beacon?.scanRecord?.bytes
-            //Log.d("main", mac.toString())
-            if (beacon?.device?.address == "C1:8B:A1:8E:26:FB") {
+            if (mac == "C1:8B:A1:8E:26:FB") {
                 if (advData != null) {
                     Log.d("アドバタイズメントデータ", "${advData.toHexString()}:data")
+                    parseAdvertisementData(advData) // ← 追加ここ！
                 }
             }
         }
