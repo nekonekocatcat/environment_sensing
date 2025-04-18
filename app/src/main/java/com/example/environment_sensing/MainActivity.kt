@@ -90,10 +90,10 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
         bleApi.startBLEBeaconScan(this) { beacon: ScanResult? ->
             val mac = beacon?.device?.address
             val advData = beacon?.scanRecord?.bytes
-            Log.d("main", mac.toString())
+            //Log.d("main", mac.toString())
             if (beacon?.device?.address == "C1:8B:A1:8E:26:FB") {
                 if (advData != null) {
-                    Log.d("main", "${advData.toHexString()}:data")
+                    Log.d("アドバタイズメントデータ", "${advData.toHexString()}:data")
                 }
             }
         }
