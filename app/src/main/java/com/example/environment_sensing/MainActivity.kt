@@ -21,7 +21,6 @@ import android.bluetooth.le.ScanResult
 import androidx.compose.ui.unit.dp
 import pub.devrel.easypermissions.EasyPermissions
 
-// ★ 1. LittleEndianでUInt16を取得する拡張関数
 fun ByteArray.getLittleEndianUInt16(index: Int): Int {
     return (this[index].toInt() and 0xFF) or ((this[index + 1].toInt() and 0xFF) shl 8)
 }
@@ -84,7 +83,7 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
         EasyPermissions.onRequestPermissionsResult(requestCode, permissions, grantResults, this)
     }
 
-    // ★ 2. アドバタイズメントデータからセンサーデータを取り出してログ表示
+
     private fun parseAdvertisementData(advData: ByteArray) {
         try {
             val temperatureRaw = advData.getLittleEndianUInt16(9)
@@ -116,7 +115,7 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
         }
     }
 
-    // ★ 3. startScanの中でparse呼び出し追加
+
     @OptIn(ExperimentalStdlibApi::class)
     private fun startScan() {
         bleApi.startBLEBeaconScan(this) { beacon: ScanResult? ->
@@ -125,7 +124,7 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
             if (mac == "C1:8B:A1:8E:26:FB") {
                 if (advData != null) {
                     Log.d("アドバタイズメントデータ", "${advData.toHexString()}:data")
-                    parseAdvertisementData(advData) // ← 追加ここ！
+                    parseAdvertisementData(advData)
                 }
             }
         }
