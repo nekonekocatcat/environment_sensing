@@ -7,29 +7,19 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.RequiresApi
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import com.example.environment_sensing.ui.theme.Environment_sensingTheme
-import androidx.compose.foundation.layout.PaddingValues
-import android.bluetooth.le.ScanResult
 import androidx.compose.ui.unit.dp
+import com.example.environment_sensing.ui.theme.Environment_sensingTheme
+import android.bluetooth.le.ScanResult
 import pub.devrel.easypermissions.EasyPermissions
-
-fun ByteArray.getLittleEndianUInt16(index: Int): Int {
-    return (this[index].toInt() and 0xFF) or ((this[index + 1].toInt() and 0xFF) shl 8)
-}
 
 class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
 
     private lateinit var bleApi: BLEApi
 
-    @OptIn(ExperimentalStdlibApi::class)
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -38,27 +28,42 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
 
         setContent {
             Environment_sensingTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                var sensorData by remember { mutableStateOf<SensorData?>(null) }
 
-                    Button(
+                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                    Column(
                         modifier = Modifier
                             .padding(innerPadding)
-                            .padding(16.dp),
-                        onClick = {
-                            Log.d("main", "スキャンボタン押された")
-
-                            if (EasyPermissions.hasPermissions(this, *bleApi.permissions)) {
-                                startScan()
+                            .padding(16.dp)
+                    ) {
+                        Button(onClick = {
+                            if (EasyPermissions.hasPermissions(this@MainActivity, *bleApi.permissions)) {
+                                startScan { data ->
+                                    sensorData = data
+                                }
                             } else {
                                 EasyPermissions.requestPermissions(
-                                    this,
+                                    this@MainActivity,
                                     "BLEスキャンにはパーミッションが必要です",
                                     1,
                                     *bleApi.permissions
                                 )
                             }
                         }) {
-                        Text("BLEスキャン開始")
+                            Text("BLEスキャン開始")
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        sensorData?.let { data ->
+                            Text("🌡 気温: ${data.temperature}℃")
+                            Text("💧 湿度: ${data.humidity}%")
+                            Text("💡 照度: ${data.light} lx")
+                            Text("📈 気圧: ${data.pressure} hPa")
+                            Text("🔊 騒音: ${data.noise} dB")
+                            Text("🌫 TVOC: ${data.tvoc} ppb")
+                            Text("🌬 CO2: ${data.co2} ppm")
+                        }
                     }
                 }
             }
@@ -67,7 +72,7 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
 
     override fun onPermissionsGranted(requestCode: Int, perms: List<String>) {
         Log.d("permission", "許可された: $perms")
-        startScan()
+        startScan { /* パーミッションだけ通して、BLEは再度ボタン押してねでもOK */ }
     }
 
     override fun onPermissionsDenied(requestCode: Int, perms: List<String>) {
@@ -83,50 +88,41 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
         EasyPermissions.onRequestPermissionsResult(requestCode, permissions, grantResults, this)
     }
 
-
-    private fun parseAdvertisementData(advData: ByteArray) {
-        try {
-            val temperatureRaw = advData.getLittleEndianUInt16(9)
-            val humidityRaw = advData.getLittleEndianUInt16(11)
-            val lightRaw = advData.getLittleEndianUInt16(13)
-            val pressureRaw = advData.getLittleEndianUInt16(16)
-            val noiseRaw = advData.getLittleEndianUInt16(19)
-            val tvocRaw = advData.getLittleEndianUInt16(21)
-            val co2Raw = advData.getLittleEndianUInt16(23)
-
-            val temperature = temperatureRaw / 100.0
-            val humidity = humidityRaw / 100.0
-            val light = lightRaw
-            val pressure = pressureRaw / 10.0
-            val noise = noiseRaw / 100.0
-            val tvoc = tvocRaw
-            val co2 = co2Raw
-
-            Log.d("センサーデータ", "🌡 気温: ${temperature}℃")
-            Log.d("センサーデータ", "💧 湿度: ${humidity}%")
-            Log.d("センサーデータ", "💡 照度: ${light} lx")
-            Log.d("センサーデータ", "📈 気圧: ${pressure} hPa")
-            Log.d("センサーデータ", "🔊 騒音: ${noise} dB")
-            Log.d("センサーデータ", "🌫 TVOC: ${tvoc} ppb")
-            Log.d("センサーデータ", "🌬 CO2: ${co2} ppm")
-
-        } catch (e: Exception) {
-            Log.e("parseError", "パースに失敗: ${e.message}")
-        }
-    }
-
-
     @OptIn(ExperimentalStdlibApi::class)
-    private fun startScan() {
+    private fun startScan(onDataParsed: (SensorData) -> Unit) {
         bleApi.startBLEBeaconScan(this) { beacon: ScanResult? ->
             val mac = beacon?.device?.address
             val advData = beacon?.scanRecord?.bytes
             if (mac == "C1:8B:A1:8E:26:FB") {
-                if (advData != null) {
-                    Log.d("アドバタイズメントデータ", "${advData.toHexString()}:data")
-                    parseAdvertisementData(advData)
+                advData?.let {
+                    Log.d("アドバタイズメントデータ", "${it.toHexString()}:data")
+                    val data = parseAdvertisementData(it)
+                    if (data != null) {
+                        onDataParsed(data)
+                    }
                 }
             }
         }
+    }
+
+    private fun parseAdvertisementData(advData: ByteArray): SensorData? {
+        return try {
+            val temperature = advData.getLittleEndianUInt16(9) / 100.0
+            val humidity = advData.getLittleEndianUInt16(11) / 100.0
+            val light = advData.getLittleEndianUInt16(13)
+            val pressure = advData.getLittleEndianUInt16(16) / 10.0
+            val noise = advData.getLittleEndianUInt16(19) / 100.0
+            val tvoc = advData.getLittleEndianUInt16(21)
+            val co2 = advData.getLittleEndianUInt16(23)
+
+            SensorData(temperature, humidity, light, pressure, noise, tvoc, co2)
+        } catch (e: Exception) {
+            Log.e("parseError", "パースに失敗: ${e.message}")
+            null
+        }
+    }
+
+    private fun ByteArray.getLittleEndianUInt16(index: Int): Int {
+        return (this[index].toInt() and 0xFF) or ((this[index + 1].toInt() and 0xFF) shl 8)
     }
 }
