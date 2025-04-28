@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.environment_sensing.ui.theme.Environment_sensingTheme
 import android.bluetooth.le.ScanResult
+import androidx.compose.ui.unit.sp
 import pub.devrel.easypermissions.EasyPermissions
 
 class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
@@ -56,13 +57,13 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
                         Spacer(modifier = Modifier.height(16.dp))
 
                         sensorData?.let { data ->
-                            Text("🌡 気温: ${data.temperature}℃")
-                            Text("💧 湿度: ${data.humidity}%")
-                            Text("💡 照度: ${data.light} lx")
-                            Text("📈 気圧: ${data.pressure} hPa")
-                            Text("🔊 騒音: ${data.noise} dB")
-                            Text("🌫 TVOC: ${data.tvoc} ppb")
-                            Text("🌬 CO2: ${data.co2} ppm")
+                            Text("🌡 気温: ${data.temperature}℃", fontSize = 30.sp)
+                            Text("💧 湿度: ${data.humidity}%", fontSize = 30.sp)
+                            Text("💡 照度: ${data.light} lx", fontSize = 30.sp)
+                            Text("📈 気圧: ${data.pressure} hPa", fontSize = 30.sp)
+                            Text("🔊 騒音: ${data.noise} dB", fontSize = 30.sp)
+                            Text("🌫 TVOC: ${data.tvoc} ppb", fontSize = 30.sp)
+                            Text("🌬 CO2: ${data.co2} ppm", fontSize = 30.sp)
                         }
                     }
                 }
