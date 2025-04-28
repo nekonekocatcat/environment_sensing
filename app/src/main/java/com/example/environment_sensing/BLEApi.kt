@@ -60,10 +60,11 @@ class BLEApi {
         if(EasyPermissions.hasPermissions(context, *permissions)){
             // スキャンのセッティング
             val scanSettings = ScanSettings.Builder()
-                .setScanMode(ScanSettings.SCAN_MODE_LOW_POWER)  // foreground serviceでやろうとするとこのスキャンモードが強制。
+                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                .setReportDelay(0)
                 .build()
             val scanFilters = mutableListOf<ScanFilter>()
-            val mUuid = UUID.fromString("0000fe9f-0000-1000-8000-00805f9b34fb") // ビーコン
+            val mUuid = UUID.fromString("0000fe9f-0000-1000-8000-00805f9b34fb")
             val filter = ScanFilter.Builder()
                 .setServiceUuid(null)
                 .build()
