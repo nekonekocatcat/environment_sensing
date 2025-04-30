@@ -16,16 +16,24 @@ import com.example.environment_sensing.ui.theme.Environment_sensingTheme
 import android.bluetooth.le.ScanResult
 import androidx.compose.ui.unit.sp
 import pub.devrel.easypermissions.EasyPermissions
+import com.example.environment_sensing.data.AppDatabase
+import com.example.environment_sensing.data.SensorRecord
+import kotlinx.coroutines.*
 
 class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
 
     private lateinit var bleApi: BLEApi
+    private lateinit var database: AppDatabase
+    private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var lastSavedTime = 0L
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         bleApi = BLEApi()
+
+        database = AppDatabase.getInstance(applicationContext)
 
         setContent {
             Environment_sensingTheme {
@@ -41,6 +49,25 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
                             if (EasyPermissions.hasPermissions(this@MainActivity, *bleApi.permissions)) {
                                 startScan { data ->
                                     sensorData = data
+
+                                    val currentTime = System.currentTimeMillis()
+                                    if (currentTime - lastSavedTime >= 30_000) {
+                                        lastSavedTime = currentTime
+                                        coroutineScope.launch {
+                                            val record = SensorRecord(
+                                                timestamp = currentTime,
+                                                temperature = data.temperature,
+                                                humidity = data.humidity,
+                                                light = data.light,
+                                                pressure = data.pressure,
+                                                noise = data.noise,
+                                                tvoc = data.tvoc,
+                                                co2 = data.co2
+                                            )
+                                            database.sensorDao().insert(record)
+                                            Log.d("DB", "センサーデータ保存: $record")
+                                        }
+                                    }
                                 }
                             } else {
                                 EasyPermissions.requestPermissions(
