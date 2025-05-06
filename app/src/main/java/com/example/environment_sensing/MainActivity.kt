@@ -14,11 +14,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.environment_sensing.ui.theme.Environment_sensingTheme
 import android.bluetooth.le.ScanResult
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.unit.sp
 import pub.devrel.easypermissions.EasyPermissions
 import com.example.environment_sensing.data.AppDatabase
 import com.example.environment_sensing.data.SensorRecord
 import kotlinx.coroutines.*
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
 
@@ -45,6 +50,9 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
                             .padding(innerPadding)
                             .padding(16.dp)
                     ) {
+
+                        val sensorDataList by database.sensorDao().getAllFlow().collectAsState(initial = emptyList())
+
                         Button(onClick = {
                             if (EasyPermissions.hasPermissions(this@MainActivity, *bleApi.permissions)) {
                                 startScan { data ->
@@ -91,12 +99,37 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
                             Text("🔊 騒音: ${data.noise} dB", fontSize = 30.sp)
                             Text("🌫 TVOC: ${data.tvoc} ppb", fontSize = 30.sp)
                             Text("🌬 CO2: ${data.co2} ppm", fontSize = 30.sp)
+
+                            Text("📊 保存済みデータ一覧", fontSize = 24.sp)
+
+                            LazyColumn(modifier = Modifier.height(300.dp)) {
+                                items(sensorDataList) { record ->
+                                    Column(modifier = Modifier.padding(bottom = 8.dp)) {
+                                        Text(text = "🕒 時間: ${formatTimestamp(record.timestamp)}", fontSize = 16.sp)
+                                        Text(text = "🌡 気温: ${record.temperature}℃", fontSize = 16.sp)
+                                        Text(text = "💧 湿度: ${record.humidity}%", fontSize = 16.sp)
+                                        Text(text = "💡 照度: ${record.light} lx", fontSize = 16.sp)
+                                        Text(text = "📈 気圧: ${record.pressure} hPa", fontSize = 16.sp)
+                                        Text(text = "🔊 騒音: ${record.noise} dB", fontSize = 16.sp)
+                                        Text(text = "🌫 TVOC: ${record.tvoc} ppb", fontSize = 16.sp)
+                                        Text(text = "🌬 CO2: ${record.co2} ppm", fontSize = 16.sp)
+                                        Divider(modifier = Modifier.padding(vertical = 4.dp))
+                                    }
+                                }
+                            }
+
                         }
                     }
                 }
             }
         }
     }
+
+    fun formatTimestamp(timestamp: Long): String {
+        val sdf = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.getDefault())
+        return sdf.format(Date(timestamp))
+    }
+
 
     override fun onPermissionsGranted(requestCode: Int, perms: List<String>) {
         Log.d("permission", "許可された: $perms")
