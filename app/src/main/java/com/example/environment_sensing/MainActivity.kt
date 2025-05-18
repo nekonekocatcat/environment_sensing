@@ -24,6 +24,8 @@ import kotlinx.coroutines.*
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
 
@@ -31,6 +33,7 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
     private lateinit var database: AppDatabase
     private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var lastSavedTime = 0L
+    private lateinit var sensorLogger: SensorLogger
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -39,19 +42,23 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
         bleApi = BLEApi()
 
         database = AppDatabase.getInstance(applicationContext)
+        sensorLogger = SensorLogger(database, coroutineScope)
 
         setContent {
             Environment_sensingTheme {
                 var sensorData by remember { mutableStateOf<SensorData?>(null) }
+                val scrollState = rememberScrollState()
 
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     Column(
                         modifier = Modifier
                             .padding(innerPadding)
                             .padding(16.dp)
+                            .verticalScroll(scrollState)
                     ) {
 
                         val sensorDataList by database.sensorDao().getAllFlow().collectAsState(initial = emptyList())
+                        val sensorRawDataList by database.sensorRawDao().getAllFlow().collectAsState(initial = emptyList())
 
                         Button(onClick = {
                             if (EasyPermissions.hasPermissions(this@MainActivity, *bleApi.permissions)) {
@@ -76,6 +83,7 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
                                             Log.d("DB", "センサーデータ保存: $record")
                                         }
                                     }
+                                    sensorLogger.log(data)
                                 }
                             } else {
                                 EasyPermissions.requestPermissions(
@@ -113,6 +121,26 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
                                         Text(text = "🔊 騒音: ${record.noise} dB", fontSize = 16.sp)
                                         Text(text = "🌫 TVOC: ${record.tvoc} ppb", fontSize = 16.sp)
                                         Text(text = "🌬 CO2: ${record.co2} ppm", fontSize = 16.sp)
+                                        Divider(modifier = Modifier.padding(vertical = 4.dp))
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(30.dp))
+
+                            Text("📈 10秒ごとのデータ一覧", fontSize = 24.sp)
+
+                            LazyColumn(modifier = Modifier.height(300.dp)) {
+                                items(sensorRawDataList) { record ->
+                                    Column(modifier = Modifier.padding(bottom = 8.dp)) {
+                                        Text("🕒 時間: ${formatTimestamp(record.timestamp)}", fontSize = 16.sp)
+                                        Text("🌡 気温: ${record.temperature}℃", fontSize = 16.sp)
+                                        Text("💧 湿度: ${record.humidity}%", fontSize = 16.sp)
+                                        Text("💡 照度: ${record.light} lx", fontSize = 16.sp)
+                                        Text("📈 気圧: ${record.pressure} hPa", fontSize = 16.sp)
+                                        Text("🔊 騒音: ${record.noise} dB", fontSize = 16.sp)
+                                        Text("🌫 TVOC: ${record.tvoc} ppb", fontSize = 16.sp)
+                                        Text("🌬 CO2: ${record.co2} ppm", fontSize = 16.sp)
                                         Divider(modifier = Modifier.padding(vertical = 4.dp))
                                     }
                                 }
