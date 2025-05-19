@@ -5,11 +5,12 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [SensorRecord::class, SensorRawRecord::class],
+@Database(entities = [SensorRecord::class, SensorRawRecord::class, ProcessedSensorRecord::class],
     version = 2)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun sensorDao(): SensorDao
     abstract fun sensorRawDao(): SensorRawDao
+    abstract fun processedSensorDao(): ProcessedSensorDao
 
     companion object {
         @Volatile
