@@ -15,4 +15,7 @@ interface SensorRawDao {
 
     @Query("SELECT * FROM SensorRawRecord ORDER BY timestamp DESC")
     fun getAllFlow(): Flow<List<SensorRawRecord>>
+
+    @Query("SELECT * FROM SensorRawRecord ORDER BY timestamp DESC LIMIT :count")
+    suspend fun getRecentRecords(count: Int): List<SensorRawRecord>
 }

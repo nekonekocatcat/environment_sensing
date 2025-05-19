@@ -26,6 +26,8 @@ import java.util.Date
 import java.util.Locale
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.graphics.Color
+import com.example.environment_sensing.processing.SensorDataProcessor
 
 class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
 
@@ -34,6 +36,7 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
     private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var lastSavedTime = 0L
     private lateinit var sensorLogger: SensorLogger
+    private lateinit var processor: SensorDataProcessor
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,6 +46,7 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
 
         database = AppDatabase.getInstance(applicationContext)
         sensorLogger = SensorLogger(database, coroutineScope)
+        processor = SensorDataProcessor()
 
         setContent {
             Environment_sensingTheme {
@@ -59,6 +63,8 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
 
                         val sensorDataList by database.sensorDao().getAllFlow().collectAsState(initial = emptyList())
                         val sensorRawDataList by database.sensorRawDao().getAllFlow().collectAsState(initial = emptyList())
+                        val processedDataList by database.processedSensorDao().getAllFlow().collectAsState(initial = emptyList())
+
 
                         Button(onClick = {
                             if (EasyPermissions.hasPermissions(this@MainActivity, *bleApi.permissions)) {
@@ -84,6 +90,15 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
                                         }
                                     }
                                     sensorLogger.log(data)
+
+                                    coroutineScope.launch {
+                                        val rawRecords = database.sensorRawDao().getRecentRecords(3)
+                                        val processed = processor.process(rawRecords)
+                                        processed?.let {
+                                            database.processedSensorDao().insert(it)
+                                            Log.d("DB", "処理済みデータ保存: $it")
+                                        }
+                                    }
                                 }
                             } else {
                                 EasyPermissions.requestPermissions(
@@ -142,6 +157,42 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
                                         Text("🌫 TVOC: ${record.tvoc} ppb", fontSize = 16.sp)
                                         Text("🌬 CO2: ${record.co2} ppm", fontSize = 16.sp)
                                         Divider(modifier = Modifier.padding(vertical = 4.dp))
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(30.dp))
+                            Text("🧮 処理済みデータ一覧", fontSize = 24.sp)
+
+                            LazyColumn(modifier = Modifier.height(400.dp)) {
+                                items(processedDataList) { record ->
+                                    Column(modifier = Modifier
+                                        .padding(8.dp)) {
+
+                                        Text("🕒 時間: ${formatTimestamp(record.timestamp)}", fontSize = 16.sp)
+
+                                        Text("🌡 平均気温: ${record.avgTemperature} ℃", fontSize = 16.sp)
+                                        Text("🌡 中央気温: ${record.medianTemperature} ℃", fontSize = 16.sp)
+
+                                        Text("💧 平均湿度: ${record.avgHumidity} %", fontSize = 16.sp)
+                                        Text("💧 中央湿度: ${record.medianHumidity} %", fontSize = 16.sp)
+
+                                        Text("🔊 平均騒音: ${record.avgNoise} dB", fontSize = 16.sp)
+                                        Text("🔊 中央騒音: ${record.medianNoise} dB", fontSize = 16.sp)
+
+                                        Text("⛰ 平均気圧: ${record.avgPressure} hPa", fontSize = 16.sp)
+                                        Text("⛰ 中央気圧: ${record.medianPressure} hPa", fontSize = 16.sp)
+
+                                        Text("💡 平均照度: ${record.avgLight} lx", fontSize = 16.sp)
+                                        Text("💡 中央照度: ${record.medianLight} lx", fontSize = 16.sp)
+
+                                        Text("🌫 平均TVOC: ${record.avgTvoc} ppb", fontSize = 16.sp)
+                                        Text("🌫 中央TVOC: ${record.medianTvoc} ppb", fontSize = 16.sp)
+
+                                        Text("🫁 平均CO2: ${record.avgCo2} ppm", fontSize = 16.sp)
+                                        Text("🫁 中央CO2: ${record.medianCo2} ppm", fontSize = 16.sp)
+
+                                        Divider(modifier = Modifier.padding(vertical = 8.dp), color = Color.Gray)
                                     }
                                 }
                             }
