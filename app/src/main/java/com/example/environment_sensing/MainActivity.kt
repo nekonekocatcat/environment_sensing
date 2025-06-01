@@ -45,7 +45,7 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
         bleApi = BLEApi()
 
         database = AppDatabase.getInstance(applicationContext)
-        sensorLogger = SensorLogger(database, coroutineScope)
+        sensorLogger = SensorLogger(applicationContext, coroutineScope)
         processor = SensorDataProcessor()
 
         setContent {
