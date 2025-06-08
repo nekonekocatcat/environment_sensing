@@ -1,3 +1,4 @@
+//処理済みデータ用のDAO
 package com.example.environment_sensing.data
 
 import androidx.room.Dao

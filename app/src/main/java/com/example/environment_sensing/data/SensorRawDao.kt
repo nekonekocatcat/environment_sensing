@@ -1,3 +1,5 @@
+// SensorRawRecord用のDAO
+//もしかしたら不要になる可能性あり
 package com.example.environment_sensing.data
 
 import androidx.room.Dao

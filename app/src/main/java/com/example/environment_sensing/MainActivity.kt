@@ -19,7 +19,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.unit.sp
 import pub.devrel.easypermissions.EasyPermissions
 import com.example.environment_sensing.data.AppDatabase
-import com.example.environment_sensing.data.SensorRecord
 import kotlinx.coroutines.*
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -53,6 +52,9 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
                 var sensorData by remember { mutableStateOf<SensorData?>(null) }
                 val scrollState = rememberScrollState()
 
+                val sensorRawDataList by database.sensorRawDao().getAllFlow().collectAsState(initial = emptyList())
+                val processedDataList by database.processedSensorDao().getAllFlow().collectAsState(initial = emptyList())
+
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     Column(
                         modifier = Modifier
@@ -60,12 +62,6 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
                             .padding(16.dp)
                             .verticalScroll(scrollState)
                     ) {
-
-                        val sensorDataList by database.sensorDao().getAllFlow().collectAsState(initial = emptyList())
-                        val sensorRawDataList by database.sensorRawDao().getAllFlow().collectAsState(initial = emptyList())
-                        val processedDataList by database.processedSensorDao().getAllFlow().collectAsState(initial = emptyList())
-
-
                         Button(onClick = {
                             if (EasyPermissions.hasPermissions(this@MainActivity, *bleApi.permissions)) {
                                 startScan { data ->
@@ -74,20 +70,6 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
                                     val currentTime = System.currentTimeMillis()
                                     if (currentTime - lastSavedTime >= 30_000) {
                                         lastSavedTime = currentTime
-                                        coroutineScope.launch {
-                                            val record = SensorRecord(
-                                                timestamp = currentTime,
-                                                temperature = data.temperature,
-                                                humidity = data.humidity,
-                                                light = data.light,
-                                                pressure = data.pressure,
-                                                noise = data.noise,
-                                                tvoc = data.tvoc,
-                                                co2 = data.co2
-                                            )
-                                            database.sensorDao().insert(record)
-                                            Log.d("DB", "センサーデータ保存: $record")
-                                        }
                                     }
                                     sensorLogger.log(data)
 
@@ -114,6 +96,7 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
 
                         Spacer(modifier = Modifier.height(16.dp))
 
+                        // 最新センサーデータの表示
                         sensorData?.let { data ->
                             Text("🌡 気温: ${data.temperature}℃", fontSize = 30.sp)
                             Text("💧 湿度: ${data.humidity}%", fontSize = 30.sp)
@@ -122,81 +105,51 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
                             Text("🔊 騒音: ${data.noise} dB", fontSize = 30.sp)
                             Text("🌫 TVOC: ${data.tvoc} ppb", fontSize = 30.sp)
                             Text("🌬 CO2: ${data.co2} ppm", fontSize = 30.sp)
+                        }
 
-                            Text("📊 保存済みデータ一覧", fontSize = 24.sp)
+                        Spacer(modifier = Modifier.height(30.dp))
+                        Text("📈 10秒ごとのデータ一覧", fontSize = 24.sp)
 
-                            LazyColumn(modifier = Modifier.height(300.dp)) {
-                                items(sensorDataList) { record ->
-                                    Column(modifier = Modifier.padding(bottom = 8.dp)) {
-                                        Text(text = "🕒 時間: ${formatTimestamp(record.timestamp)}", fontSize = 16.sp)
-                                        Text(text = "🌡 気温: ${record.temperature}℃", fontSize = 16.sp)
-                                        Text(text = "💧 湿度: ${record.humidity}%", fontSize = 16.sp)
-                                        Text(text = "💡 照度: ${record.light} lx", fontSize = 16.sp)
-                                        Text(text = "📈 気圧: ${record.pressure} hPa", fontSize = 16.sp)
-                                        Text(text = "🔊 騒音: ${record.noise} dB", fontSize = 16.sp)
-                                        Text(text = "🌫 TVOC: ${record.tvoc} ppb", fontSize = 16.sp)
-                                        Text(text = "🌬 CO2: ${record.co2} ppm", fontSize = 16.sp)
-                                        Divider(modifier = Modifier.padding(vertical = 4.dp))
-                                    }
+                        LazyColumn(modifier = Modifier.height(300.dp)) {
+                            items(sensorRawDataList) { record ->
+                                Column(modifier = Modifier.padding(bottom = 8.dp)) {
+                                    Text("🕒 時間: ${formatTimestamp(record.timestamp)}", fontSize = 16.sp)
+                                    Text("🌡 気温: ${record.temperature}℃", fontSize = 16.sp)
+                                    Text("💧 湿度: ${record.humidity}%", fontSize = 16.sp)
+                                    Text("💡 照度: ${record.light} lx", fontSize = 16.sp)
+                                    Text("📈 気圧: ${record.pressure} hPa", fontSize = 16.sp)
+                                    Text("🔊 騒音: ${record.noise} dB", fontSize = 16.sp)
+                                    Text("🌫 TVOC: ${record.tvoc} ppb", fontSize = 16.sp)
+                                    Text("🌬 CO2: ${record.co2} ppm", fontSize = 16.sp)
+                                    Divider(modifier = Modifier.padding(vertical = 4.dp))
                                 }
                             }
+                        }
 
-                            Spacer(modifier = Modifier.height(30.dp))
+                        Spacer(modifier = Modifier.height(30.dp))
+                        Text("🧮 処理済みデータ一覧", fontSize = 24.sp)
 
-                            Text("📈 10秒ごとのデータ一覧", fontSize = 24.sp)
-
-                            LazyColumn(modifier = Modifier.height(300.dp)) {
-                                items(sensorRawDataList) { record ->
-                                    Column(modifier = Modifier.padding(bottom = 8.dp)) {
-                                        Text("🕒 時間: ${formatTimestamp(record.timestamp)}", fontSize = 16.sp)
-                                        Text("🌡 気温: ${record.temperature}℃", fontSize = 16.sp)
-                                        Text("💧 湿度: ${record.humidity}%", fontSize = 16.sp)
-                                        Text("💡 照度: ${record.light} lx", fontSize = 16.sp)
-                                        Text("📈 気圧: ${record.pressure} hPa", fontSize = 16.sp)
-                                        Text("🔊 騒音: ${record.noise} dB", fontSize = 16.sp)
-                                        Text("🌫 TVOC: ${record.tvoc} ppb", fontSize = 16.sp)
-                                        Text("🌬 CO2: ${record.co2} ppm", fontSize = 16.sp)
-                                        Divider(modifier = Modifier.padding(vertical = 4.dp))
-                                    }
+                        LazyColumn(modifier = Modifier.height(400.dp)) {
+                            items(processedDataList) { record ->
+                                Column(modifier = Modifier.padding(8.dp)) {
+                                    Text("🕒 時間: ${formatTimestamp(record.timestamp)}", fontSize = 16.sp)
+                                    Text("🌡 平均気温: ${record.avgTemperature} ℃", fontSize = 16.sp)
+                                    Text("🌡 中央気温: ${record.medianTemperature} ℃", fontSize = 16.sp)
+                                    Text("💧 平均湿度: ${record.avgHumidity} %", fontSize = 16.sp)
+                                    Text("💧 中央湿度: ${record.medianHumidity} %", fontSize = 16.sp)
+                                    Text("🔊 平均騒音: ${record.avgNoise} dB", fontSize = 16.sp)
+                                    Text("🔊 中央騒音: ${record.medianNoise} dB", fontSize = 16.sp)
+                                    Text("⛰ 平均気圧: ${record.avgPressure} hPa", fontSize = 16.sp)
+                                    Text("⛰ 中央気圧: ${record.medianPressure} hPa", fontSize = 16.sp)
+                                    Text("💡 平均照度: ${record.avgLight} lx", fontSize = 16.sp)
+                                    Text("💡 中央照度: ${record.medianLight} lx", fontSize = 16.sp)
+                                    Text("🌫 平均TVOC: ${record.avgTvoc} ppb", fontSize = 16.sp)
+                                    Text("🌫 中央TVOC: ${record.medianTvoc} ppb", fontSize = 16.sp)
+                                    Text("🫁 平均CO2: ${record.avgCo2} ppm", fontSize = 16.sp)
+                                    Text("🫁 中央CO2: ${record.medianCo2} ppm", fontSize = 16.sp)
+                                    Divider(modifier = Modifier.padding(vertical = 8.dp), color = Color.Gray)
                                 }
                             }
-
-                            Spacer(modifier = Modifier.height(30.dp))
-                            Text("🧮 処理済みデータ一覧", fontSize = 24.sp)
-
-                            LazyColumn(modifier = Modifier.height(400.dp)) {
-                                items(processedDataList) { record ->
-                                    Column(modifier = Modifier
-                                        .padding(8.dp)) {
-
-                                        Text("🕒 時間: ${formatTimestamp(record.timestamp)}", fontSize = 16.sp)
-
-                                        Text("🌡 平均気温: ${record.avgTemperature} ℃", fontSize = 16.sp)
-                                        Text("🌡 中央気温: ${record.medianTemperature} ℃", fontSize = 16.sp)
-
-                                        Text("💧 平均湿度: ${record.avgHumidity} %", fontSize = 16.sp)
-                                        Text("💧 中央湿度: ${record.medianHumidity} %", fontSize = 16.sp)
-
-                                        Text("🔊 平均騒音: ${record.avgNoise} dB", fontSize = 16.sp)
-                                        Text("🔊 中央騒音: ${record.medianNoise} dB", fontSize = 16.sp)
-
-                                        Text("⛰ 平均気圧: ${record.avgPressure} hPa", fontSize = 16.sp)
-                                        Text("⛰ 中央気圧: ${record.medianPressure} hPa", fontSize = 16.sp)
-
-                                        Text("💡 平均照度: ${record.avgLight} lx", fontSize = 16.sp)
-                                        Text("💡 中央照度: ${record.medianLight} lx", fontSize = 16.sp)
-
-                                        Text("🌫 平均TVOC: ${record.avgTvoc} ppb", fontSize = 16.sp)
-                                        Text("🌫 中央TVOC: ${record.medianTvoc} ppb", fontSize = 16.sp)
-
-                                        Text("🫁 平均CO2: ${record.avgCo2} ppm", fontSize = 16.sp)
-                                        Text("🫁 中央CO2: ${record.medianCo2} ppm", fontSize = 16.sp)
-
-                                        Divider(modifier = Modifier.padding(vertical = 8.dp), color = Color.Gray)
-                                    }
-                                }
-                            }
-
                         }
                     }
                 }
@@ -208,7 +161,6 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
         val sdf = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.getDefault())
         return sdf.format(Date(timestamp))
     }
-
 
     override fun onPermissionsGranted(requestCode: Int, perms: List<String>) {
         Log.d("permission", "許可された: $perms")

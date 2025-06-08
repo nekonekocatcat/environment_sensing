@@ -1,3 +1,4 @@
+//平均・中央値の処理済みデータEntity
 package com.example.environment_sensing.data
 
 import androidx.room.Entity

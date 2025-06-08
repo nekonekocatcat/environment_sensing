@@ -1,3 +1,4 @@
+//10秒ごとの生データのEntity（CSV保存に完全移行するなら不要）
 package com.example.environment_sensing.data
 
 import androidx.room.Entity
