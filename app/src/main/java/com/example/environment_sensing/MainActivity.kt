@@ -24,12 +24,14 @@ import java.text.SimpleDateFormat
 import java.util.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import com.example.environment_sensing.data.AppDatabase
 import com.example.environment_sensing.data.SensorRawRecord
 
 class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
 
     private lateinit var bleApi: BLEApi
     private lateinit var sensorLogger: SensorLogger
+    private lateinit var database: AppDatabase
     private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var lastSavedTime = 0L
     private val csvFileName = "sensor_raw_data.csv"
@@ -40,6 +42,7 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
         enableEdgeToEdge()
         bleApi = BLEApi()
         sensorLogger = SensorLogger(applicationContext, coroutineScope)
+        database = AppDatabase.getInstance(applicationContext)
 
         setContent {
             Environment_sensingTheme {
@@ -90,6 +93,7 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
                                                     🫁 平均CO2: ${it.avgCo2} / 中央CO2: ${it.medianCo2}
                                                     """.trimIndent()
                                                     processedText = text
+                                                    database.processedSensorDao().insert(it)
                                                 }
                                             }
                                         }
