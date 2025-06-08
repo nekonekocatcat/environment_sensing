@@ -1,4 +1,4 @@
-package com.example.environment_sensing.processing
+package com.example.environment_sensing
 
 import com.example.environment_sensing.data.ProcessedSensorRecord
 import com.example.environment_sensing.data.SensorRawRecord
