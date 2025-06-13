@@ -14,40 +14,44 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.environment_sensing.ui.theme.Environment_sensingTheme
 import android.bluetooth.le.ScanResult
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.ui.unit.sp
 import pub.devrel.easypermissions.EasyPermissions
 import kotlinx.coroutines.*
-import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import com.example.environment_sensing.data.AppDatabase
-import com.example.environment_sensing.data.SensorRawRecord
+import androidx.compose.ui.unit.sp
 
 class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
 
     private lateinit var bleApi: BLEApi
     private lateinit var sensorLogger: SensorLogger
-    private lateinit var database: AppDatabase
+
+    private var rareMessage by mutableStateOf("")
+    private val rareMessageDuration = 5_000L
+
     private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var lastSavedTime = 0L
-    private val csvFileName = "sensor_raw_data.csv"
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
         bleApi = BLEApi()
-        sensorLogger = SensorLogger(applicationContext, coroutineScope)
-        database = AppDatabase.getInstance(applicationContext)
+
+        // コールバックでレア環境通知を受け取るSensorLogger
+        sensorLogger = SensorLogger(applicationContext, coroutineScope) { rareName ->
+            rareMessage = "🎉 レア環境ゲット！ [$rareName]"
+            coroutineScope.launch {
+                delay(rareMessageDuration)
+                rareMessage = ""
+            }
+        }
 
         setContent {
             Environment_sensingTheme {
                 var sensorData by remember { mutableStateOf<SensorData?>(null) }
-                var processedText by remember { mutableStateOf("") }
                 val scrollState = rememberScrollState()
 
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -63,43 +67,10 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
                                     sensorData = data
 
                                     val currentTime = System.currentTimeMillis()
-                                    if (currentTime - lastSavedTime >= 30_000) {
+                                    if (currentTime - lastSavedTime >= 10_000) {
                                         lastSavedTime = currentTime
-                                        coroutineScope.launch {
-                                            val recentData = readLastSensorDataFromCsv(3)
-                                            if (recentData.size == 3) {
-                                                val sensorRawList = recentData.map {
-                                                    SensorRawRecord(
-                                                        timestamp = System.currentTimeMillis(), // CSVに時間がないのでここで代用
-                                                        temperature = it.temperature,
-                                                        humidity = it.humidity,
-                                                        light = it.light,
-                                                        pressure = it.pressure,
-                                                        noise = it.noise,
-                                                        tvoc = it.tvoc,
-                                                        co2 = it.co2
-                                                    )
-                                                }
-                                                val processed = SensorDataProcessor().process(sensorRawList)
-                                                processed?.let {
-                                                    val text = """
-                                                    🕒 ${formatTimestamp(it.timestamp)}
-                                                    🌡 平均気温: ${it.avgTemperature} / 中央気温: ${it.medianTemperature}
-                                                    💧 平均湿度: ${it.avgHumidity} / 中央湿度: ${it.medianHumidity}
-                                                    💡 平均照度: ${it.avgLight} / 中央照度: ${it.medianLight}
-                                                    📈 平均気圧: ${it.avgPressure} / 中央気圧: ${it.medianPressure}
-                                                    🔊 平均騒音: ${it.avgNoise} / 中央騒音: ${it.medianNoise}
-                                                    🌫 平均TVOC: ${it.avgTvoc} / 中央TVOC: ${it.medianTvoc}
-                                                    🫁 平均CO2: ${it.avgCo2} / 中央CO2: ${it.medianCo2}
-                                                    """.trimIndent()
-                                                    processedText = text
-                                                    database.processedSensorDao().insert(it)
-                                                }
-                                            }
-                                        }
+                                        sensorLogger.log(data)
                                     }
-
-                                    sensorLogger.log(data)
                                 }
                             } else {
                                 EasyPermissions.requestPermissions(
@@ -127,47 +98,13 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
 
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        if (processedText.isNotEmpty()) {
-                            Text("🧮 処理済みデータ", fontSize = 20.sp)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(processedText, fontSize = 16.sp)
+                        if (rareMessage.isNotEmpty()) {
+                            Text(rareMessage, fontSize = 28.sp, color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
             }
         }
-    }
-
-    private suspend fun readLastSensorDataFromCsv(n: Int): List<SensorData> {
-        val file = File(applicationContext.getExternalFilesDir(null), csvFileName)
-        if (!file.exists()) return emptyList()
-
-        return withContext(Dispatchers.IO) {
-            file.readLines()
-                .drop(1) // ヘッダー除外
-                .takeLast(n)
-                .mapNotNull { line ->
-                    val parts = line.split(",")
-                    try {
-                        SensorData(
-                            temperature = parts[1].toDouble(),
-                            humidity = parts[2].toDouble(),
-                            light = parts[3].toInt(),
-                            pressure = parts[4].toDouble(),
-                            noise = parts[5].toDouble(),
-                            tvoc = parts[6].toInt(),
-                            co2 = parts[7].toInt()
-                        )
-                    } catch (e: Exception) {
-                        null
-                    }
-                }
-        }
-    }
-
-    private fun formatTimestamp(timestamp: Long): String {
-        val sdf = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.getDefault())
-        return sdf.format(Date(timestamp))
     }
 
     override fun onPermissionsGranted(requestCode: Int, perms: List<String>) {
@@ -184,7 +121,12 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        EasyPermissions.onRequestPermissionsResult(requestCode, permissions, grantResults, this)
+        EasyPermissions.onRequestPermissionsResult(
+            requestCode,
+            permissions,
+            grantResults,
+            this@MainActivity
+        )
     }
 
     @OptIn(ExperimentalStdlibApi::class)
