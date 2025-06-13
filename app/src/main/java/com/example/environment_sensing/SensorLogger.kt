@@ -8,13 +8,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileWriter
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 class SensorLogger(
     private val context: Context,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    private val onRareDetected: (String) -> Unit
 ) {
     private var lastSavedTime = 0L
     private var job: Job? = null
@@ -25,11 +23,9 @@ class SensorLogger(
             lastSavedTime = currentTime
 
             job = scope.launch(Dispatchers.IO) {
-                val timestampString = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.getDefault())
-                    .format(Date(currentTime))
-
+                // CSVに保存
                 val csvLine = listOf(
-                    timestampString,
+                    currentTime.toString(),
                     data.temperature.toString(),
                     data.humidity.toString(),
                     data.light.toString(),
@@ -41,18 +37,20 @@ class SensorLogger(
 
                 val file = File(context.getExternalFilesDir(null), "sensor_raw_data.csv")
                 val isNewFile = file.createNewFile()
-
                 val writer = FileWriter(file, true)
-
                 if (isNewFile) {
                     writer.appendLine("timestamp,temperature,humidity,light,pressure,noise,tvoc,co2")
                 }
-
                 writer.appendLine(csvLine)
                 writer.flush()
                 writer.close()
 
                 Log.d("RawLogger", "CSVに保存: $csvLine")
+
+                // レア環境チェック
+                RareEnvironmentChecker.check(data)?.let { rareName ->
+                    onRareDetected(rareName)
+                }
             }
         }
     }
