@@ -20,4 +20,7 @@ interface SensorRawDao {
 
     @Query("SELECT * FROM SensorRawRecord ORDER BY timestamp DESC LIMIT :count")
     suspend fun getRecentRecords(count: Int): List<SensorRawRecord>
+
+    @Query("SELECT * FROM SensorRawRecord ORDER BY timestamp DESC LIMIT 1")
+    suspend fun getLatest(): SensorRawRecord?
 }

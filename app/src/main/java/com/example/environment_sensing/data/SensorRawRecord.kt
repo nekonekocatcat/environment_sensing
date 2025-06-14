@@ -3,6 +3,7 @@ package com.example.environment_sensing.data
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.example.environment_sensing.SensorData
 
 @Entity
 data class SensorRawRecord(
@@ -16,3 +17,15 @@ data class SensorRawRecord(
     val tvoc: Int,
     val co2: Int
 )
+
+fun SensorRawRecord.toSensorData(): SensorData {
+    return SensorData(
+        temperature = this.temperature,
+        humidity = this.humidity,
+        light = this.light,
+        pressure = this.pressure,
+        noise = this.noise,
+        tvoc = this.tvoc,
+        co2 = this.co2
+    )
+}
