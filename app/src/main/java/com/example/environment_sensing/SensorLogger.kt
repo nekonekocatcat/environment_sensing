@@ -2,60 +2,72 @@ package com.example.environment_sensing
 
 import android.content.Context
 import android.util.Log
+import com.example.environment_sensing.data.AppDatabase
+import com.example.environment_sensing.data.SensorRawRecord
+import com.example.environment_sensing.data.toSensorData
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileWriter
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class SensorLogger(
     private val context: Context,
-    private val scope: CoroutineScope,
-    private val onRareDetected: (String) -> Unit
+    private val coroutineScope: CoroutineScope,
+    private val onRareDetected: ((String) -> Unit)? = null
 ) {
-    private var lastSavedTime = 0L
-    private var job: Job? = null
+
+    private val file = File(context.getExternalFilesDir(null), "sensor_raw_data.csv")
+    private val database = AppDatabase.getInstance(context)
 
     fun log(data: SensorData) {
-        val currentTime = System.currentTimeMillis()
-        if (currentTime - lastSavedTime >= 10_000) {
-            lastSavedTime = currentTime
+        val timestamp = System.currentTimeMillis()
+        val formattedTime = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.getDefault()).format(Date(timestamp))
 
-            job = scope.launch(Dispatchers.IO) {
-                // CSVに保存
-                val csvLine = listOf(
-                    currentTime.toString(),
-                    data.temperature.toString(),
-                    data.humidity.toString(),
-                    data.light.toString(),
-                    data.pressure.toString(),
-                    data.noise.toString(),
-                    data.tvoc.toString(),
-                    data.co2.toString()
-                ).joinToString(",")
+        val csvLine = listOf(
+            formattedTime,
+            data.temperature,
+            data.humidity,
+            data.light,
+            data.pressure,
+            data.noise,
+            data.tvoc,
+            data.co2
+        ).joinToString(",")
 
-                val file = File(context.getExternalFilesDir(null), "sensor_raw_data.csv")
-                val isNewFile = file.createNewFile()
-                val writer = FileWriter(file, true)
-                if (isNewFile) {
-                    writer.appendLine("timestamp,temperature,humidity,light,pressure,noise,tvoc,co2")
-                }
-                writer.appendLine(csvLine)
-                writer.flush()
-                writer.close()
+        coroutineScope.launch {
+            // 1. CSV保存
+            val isNewFile = file.createNewFile()
+            val writer = FileWriter(file, true)
+            if (isNewFile) {
+                writer.appendLine("timestamp,temperature,humidity,light,pressure,noise,tvoc,co2")
+            }
+            writer.appendLine(csvLine)
+            writer.flush()
+            writer.close()
 
-                Log.d("RawLogger", "CSVに保存: $csvLine")
+            // 2. DB保存
+            val record = SensorRawRecord(
+                timestamp = timestamp,
+                temperature = data.temperature,
+                humidity = data.humidity,
+                light = data.light,
+                pressure = data.pressure,
+                noise = data.noise,
+                tvoc = data.tvoc,
+                co2 = data.co2
+            )
+            database.sensorRawDao().insert(record)
+            Log.d("SensorLogger", "データ保存 (CSV + DB): $record")
 
-                // レア環境チェック
-                RareEnvironmentChecker.check(data)?.let { rareName ->
-                    onRareDetected(rareName)
-                }
+            // DBからレア環境の判定をしとります
+            val latest = database.sensorRawDao().getLatest()
+            val rareName = latest?.let { RareEnvironmentChecker.check(it.toSensorData()) }
+            if (rareName != null) {
+                onRareDetected?.invoke(rareName)
             }
         }
-    }
-
-    fun cancel() {
-        job?.cancel()
     }
 }

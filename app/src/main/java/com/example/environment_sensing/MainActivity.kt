@@ -23,7 +23,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.unit.sp
 
 class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
-
     private lateinit var bleApi: BLEApi
     private lateinit var sensorLogger: SensorLogger
 
