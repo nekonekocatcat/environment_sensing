@@ -3,8 +3,8 @@ package com.example.environment_sensing
 import android.content.Context
 import android.util.Log
 import com.example.environment_sensing.data.AppDatabase
+import com.example.environment_sensing.data.RareEnvironmentLog
 import com.example.environment_sensing.data.SensorRawRecord
-import com.example.environment_sensing.data.toSensorData
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.io.File
@@ -24,10 +24,8 @@ class SensorLogger(
 
     fun log(data: SensorData) {
         val timestamp = System.currentTimeMillis()
-        val formattedTime = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.getDefault()).format(Date(timestamp))
-
         val csvLine = listOf(
-            formattedTime,
+            timestamp,
             data.temperature,
             data.humidity,
             data.light,
@@ -41,6 +39,7 @@ class SensorLogger(
             // 1. CSV保存
             val isNewFile = file.createNewFile()
             val writer = FileWriter(file, true)
+            val formattedTime = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.getDefault()).format(Date(timestamp))
             if (isNewFile) {
                 writer.appendLine("timestamp,temperature,humidity,light,pressure,noise,tvoc,co2")
             }
@@ -62,11 +61,17 @@ class SensorLogger(
             database.sensorRawDao().insert(record)
             Log.d("SensorLogger", "データ保存 (CSV + DB): $record")
 
-            // DBからレア環境の判定をしとります
-            val latest = database.sensorRawDao().getLatest()
-            val rareName = latest?.let { RareEnvironmentChecker.check(it.toSensorData()) }
+            // 3. レア環境判定＆ログ保存
+            val rareName = RareEnvironmentChecker.check(data)
             if (rareName != null) {
                 onRareDetected?.invoke(rareName)
+
+                val log = RareEnvironmentLog(
+                    timestamp = timestamp,
+                    environmentName = rareName
+                )
+                database.rareEnvironmentLogDao().insert(log)
+                Log.d("RareEnv", "レア環境ログ保存: $log")
             }
         }
     }
