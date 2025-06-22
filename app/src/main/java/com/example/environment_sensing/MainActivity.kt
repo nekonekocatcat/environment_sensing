@@ -149,7 +149,7 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
             val temperature = advData.getLittleEndianUInt16(9) / 100.0
             val humidity = advData.getLittleEndianUInt16(11) / 100.0
             val light = advData.getLittleEndianUInt16(13)
-            val pressure = advData.getLittleEndianUInt16(16) / 10.0
+            val pressure = advData.getLittleEndianUInt24(15) / 1000.0
             val noise = advData.getLittleEndianUInt16(19) / 100.0
             val tvoc = advData.getLittleEndianUInt16(21)
             val co2 = advData.getLittleEndianUInt16(23)
@@ -163,5 +163,11 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
 
     private fun ByteArray.getLittleEndianUInt16(index: Int): Int {
         return (this[index].toInt() and 0xFF) or ((this[index + 1].toInt() and 0xFF) shl 8)
+    }
+
+    private fun ByteArray.getLittleEndianUInt24(index: Int): Int {
+        return (this[index].toInt() and 0xFF) or
+                ((this[index + 1].toInt() and 0xFF) shl 8) or
+                ((this[index + 2].toInt() and 0xFF) shl 16)
     }
 }
