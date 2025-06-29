@@ -16,8 +16,6 @@ import com.example.environment_sensing.ui.theme.Environment_sensingTheme
 import android.bluetooth.le.ScanResult
 import pub.devrel.easypermissions.EasyPermissions
 import kotlinx.coroutines.*
-import java.text.SimpleDateFormat
-import java.util.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.unit.sp
@@ -27,7 +25,10 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
     private lateinit var sensorLogger: SensorLogger
 
     private var rareMessage by mutableStateOf("")
+    private var normalMessage by mutableStateOf("")
+
     private val rareMessageDuration = 5_000L
+    private val normalMessageDuration = 5_000L
 
     private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var lastSavedTime = 0L
@@ -38,15 +39,7 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
         enableEdgeToEdge()
 
         bleApi = BLEApi()
-
-        // コールバックでレア環境通知を受け取るSensorLogger
-        sensorLogger = SensorLogger(applicationContext, coroutineScope) { rareName ->
-            rareMessage = "🎉 レア環境ゲット！ [$rareName]"
-            coroutineScope.launch {
-                delay(rareMessageDuration)
-                rareMessage = ""
-            }
-        }
+        sensorLogger = SensorLogger(applicationContext, coroutineScope)
 
         setContent {
             Environment_sensingTheme {
@@ -68,6 +61,28 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
                                     val currentTime = System.currentTimeMillis()
                                     if (currentTime - lastSavedTime >= 10_000) {
                                         lastSavedTime = currentTime
+
+                                        //  レア環境の判定
+                                        val rareName = RareEnvironmentChecker.check(data)
+                                        if (rareName != null) {
+                                            rareMessage = "🎉 レア環境ゲット！ [$rareName]"
+                                            coroutineScope.launch {
+                                                delay(rareMessageDuration)
+                                                rareMessage = ""
+                                            }
+                                        } else {
+                                            //  ノーマル環境の判定
+                                            val normalName = NormalEnvironmentChecker.check(data)
+                                            if (normalName != null) {
+                                                normalMessage = "✨ ノーマル環境ゲット！ [$normalName]"
+                                                coroutineScope.launch {
+                                                    delay(normalMessageDuration)
+                                                    normalMessage = ""
+                                                }
+                                            }
+                                        }
+
+                                        // ログ保存（CSV + DB）
                                         sensorLogger.log(data)
                                     }
                                 }
@@ -99,6 +114,9 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
 
                         if (rareMessage.isNotEmpty()) {
                             Text(rareMessage, fontSize = 28.sp, color = MaterialTheme.colorScheme.primary)
+                        }
+                        if (normalMessage.isNotEmpty()) {
+                            Text(normalMessage, fontSize = 24.sp, color = MaterialTheme.colorScheme.tertiary)
                         }
                     }
                 }
