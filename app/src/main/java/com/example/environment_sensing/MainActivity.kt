@@ -86,11 +86,11 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
                         Spacer(modifier = Modifier.height(16.dp))
 
                         sensorData?.let { data ->
-                            Text("🌡 気温: ${data.temperature}℃", fontSize = 24.sp)
-                            Text("💧 湿度: ${data.humidity}%", fontSize = 24.sp)
+                            Text("🌡 気温: ${"%.1f".format(data.temperature)}℃", fontSize = 24.sp)
+                            Text("💧 湿度: ${"%.1f".format(data.humidity)}%", fontSize = 24.sp)
                             Text("💡 照度: ${data.light} lx", fontSize = 24.sp)
-                            Text("📈 気圧: ${data.pressure} hPa", fontSize = 24.sp)
-                            Text("🔊 騒音: ${data.noise} dB", fontSize = 24.sp)
+                            Text("📈 気圧: ${"%.1f".format(data.pressure)} hPa", fontSize = 24.sp)
+                            Text("🔊 騒音: ${"%.1f".format(data.noise)} dB", fontSize = 24.sp)
                             Text("🌫 TVOC: ${data.tvoc} ppb", fontSize = 24.sp)
                             Text("🌬 CO2: ${data.co2} ppm", fontSize = 24.sp)
                         }
