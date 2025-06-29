@@ -17,12 +17,12 @@ object RareEnvironmentChecker {
         RareEnvironment("乾燥×高温レア環境") {/*砂漠のような環境を想定*/
             it.humidity <= 30 && it.temperature >= 30
         },
+        RareEnvironment("薄暗い×有機ガスレア環境") {/*シーシャバーを想定*/
+            it.light <= 30 && it.tvoc >= 200
+        },
         RareEnvironment("高温×息苦しさレア環境") {/*真夏の密室を想定*/
             it.temperature >= 30 && it.co2 >= 600
         },
-        RareEnvironment("薄暗い×有機ガスレア環境") {/*シーシャバーを想定*/
-            it.light <= 30 && it.tvoc >= 500
-        }
     )
 
     fun check(data: SensorData): String? {
