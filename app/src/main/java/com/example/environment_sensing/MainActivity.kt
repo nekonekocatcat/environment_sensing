@@ -24,6 +24,8 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
     private lateinit var bleApi: BLEApi
     private lateinit var sensorLogger: SensorLogger
 
+    private var showNormalDialog by mutableStateOf(false)
+    private var showRareDialog by mutableStateOf(false)
     private var rareMessage by mutableStateOf("")
     private var normalMessage by mutableStateOf("")
 
@@ -47,6 +49,18 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
                 val scrollState = rememberScrollState()
 
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                    if (rareMessage.isNotEmpty() && showRareDialog) {
+                        AlertDialog(
+                            onDismissRequest = { showRareDialog = false },
+                            confirmButton = {
+                                TextButton(onClick = { showRareDialog = false }) {
+                                    Text("OK")
+                                }
+                            },
+                            title = { Text("レア環境ゲット！") },
+                            text = { Text(rareMessage) }
+                        )
+                    }
                     Column(
                         modifier = Modifier
                             .padding(innerPadding)
@@ -66,19 +80,13 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
                                         val rareName = RareEnvironmentChecker.check(data)
                                         if (rareName != null) {
                                             rareMessage = "🎉 レア環境ゲット！ [$rareName]"
-                                            coroutineScope.launch {
-                                                delay(rareMessageDuration)
-                                                rareMessage = ""
-                                            }
+                                            showRareDialog = true
                                         } else {
                                             //  ノーマル環境の判定
                                             val normalName = NormalEnvironmentChecker.check(data)
                                             if (normalName != null) {
-                                                normalMessage = "✨ ノーマル環境ゲット！ [$normalName]"
-                                                coroutineScope.launch {
-                                                    delay(normalMessageDuration)
-                                                    normalMessage = ""
-                                                }
+                                                normalMessage = "✨ [$normalName]"
+                                                showNormalDialog = true
                                             }
                                         }
 
@@ -112,11 +120,17 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
 
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        if (rareMessage.isNotEmpty()) {
-                            Text(rareMessage, fontSize = 28.sp, color = MaterialTheme.colorScheme.primary)
-                        }
-                        if (normalMessage.isNotEmpty()) {
-                            Text(normalMessage, fontSize = 24.sp, color = MaterialTheme.colorScheme.tertiary)
+                        if (normalMessage.isNotEmpty() && showNormalDialog) {
+                            AlertDialog(
+                                onDismissRequest = { showNormalDialog = false },
+                                confirmButton = {
+                                    TextButton(onClick = { showNormalDialog = false }) {
+                                        Text("OK")
+                                    }
+                                },
+                                title = { Text("ノーマル環境ゲット！") },
+                                text = { Text(normalMessage) }
+                            )
                         }
                     }
                 }
