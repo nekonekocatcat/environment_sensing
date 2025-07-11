@@ -3,34 +3,23 @@ package com.example.environment_sensing
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.bluetooth.le.ScanResult
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.RequiresApi
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import com.example.environment_sensing.ui.theme.Environment_sensingTheme
-import android.bluetooth.le.ScanResult
+import androidx.navigation.compose.*
 import pub.devrel.easypermissions.EasyPermissions
 import kotlinx.coroutines.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.unit.sp
+import com.example.environment_sensing.ui.theme.Environment_sensingTheme
 
 class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
     private lateinit var bleApi: BLEApi
     private lateinit var sensorLogger: SensorLogger
-
-    private var showNormalDialog by mutableStateOf(false)
-    private var showRareDialog by mutableStateOf(false)
-    private var rareMessage by mutableStateOf("")
-    private var normalMessage by mutableStateOf("")
-
-    private val rareMessageDuration = 5_000L
-    private val normalMessageDuration = 5_000L
 
     private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var lastSavedTime = 0L
@@ -45,92 +34,61 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
 
         setContent {
             Environment_sensingTheme {
+                val navController = rememberNavController()
                 var sensorData by remember { mutableStateOf<SensorData?>(null) }
-                val scrollState = rememberScrollState()
+                var rareMessage by remember { mutableStateOf("") }
+                var normalMessage by remember { mutableStateOf("") }
+                var showRareDialog by remember { mutableStateOf(false) }
+                var showNormalDialog by remember { mutableStateOf(false) }
 
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    if (rareMessage.isNotEmpty() && showRareDialog) {
-                        AlertDialog(
-                            onDismissRequest = { showRareDialog = false },
-                            confirmButton = {
-                                TextButton(onClick = { showRareDialog = false }) {
-                                    Text("OK")
-                                }
-                            },
-                            title = { Text("レア環境ゲット！") },
-                            text = { Text(rareMessage) }
-                        )
+                Scaffold(
+                    bottomBar = {
+                        BottomNavigationBar(navController = navController)
                     }
-                    Column(
-                        modifier = Modifier
-                            .padding(innerPadding)
-                            .padding(16.dp)
-                            .verticalScroll(scrollState)
+                ) { innerPadding ->
+                    NavHost(
+                        navController = navController,
+                        startDestination = "realtime",
+                        modifier = Modifier.padding(innerPadding)
                     ) {
-                        Button(onClick = {
-                            if (EasyPermissions.hasPermissions(this@MainActivity, *bleApi.permissions)) {
-                                startScan { data ->
-                                    sensorData = data
+                        composable("realtime") {
+                            RealtimeScreen(
+                                sensorData = sensorData,
+                                rareMessage = rareMessage,
+                                normalMessage = normalMessage,
+                                showRareDialog = showRareDialog,
+                                showNormalDialog = showNormalDialog,
+                                onDismissRare = { showRareDialog = false },
+                                onDismissNormal = { showNormalDialog = false },
+                                onStartScan = {
+                                    startScan { data ->
+                                        sensorData = data
 
-                                    val currentTime = System.currentTimeMillis()
-                                    if (currentTime - lastSavedTime >= 10_000) {
-                                        lastSavedTime = currentTime
+                                        val currentTime = System.currentTimeMillis()
+                                        if (currentTime - lastSavedTime >= 10_000) {
+                                            lastSavedTime = currentTime
 
-                                        //  レア環境の判定
-                                        val rareName = RareEnvironmentChecker.check(data)
-                                        if (rareName != null) {
-                                            rareMessage = "🎉 レア環境ゲット！ [$rareName]"
-                                            showRareDialog = true
-                                        } else {
-                                            //  ノーマル環境の判定
-                                            val normalName = NormalEnvironmentChecker.check(data)
-                                            if (normalName != null) {
-                                                normalMessage = "✨ [$normalName]"
-                                                showNormalDialog = true
+                                            // 判定
+                                            val rareName = RareEnvironmentChecker.check(data)
+                                            if (rareName != null) {
+                                                rareMessage = "🎉 レア環境ゲット！ [$rareName]"
+                                                showRareDialog = true
+                                            } else {
+                                                val normalName = NormalEnvironmentChecker.check(data)
+                                                if (normalName != null) {
+                                                    normalMessage = "✨ [$normalName]"
+                                                    showNormalDialog = true
+                                                }
                                             }
-                                        }
 
-                                        // ログ保存（CSV + DB）
-                                        sensorLogger.log(data)
+                                            sensorLogger.log(data)
+                                        }
                                     }
                                 }
-                            } else {
-                                EasyPermissions.requestPermissions(
-                                    this@MainActivity,
-                                    "BLEスキャンにはパーミッションが必要です",
-                                    1,
-                                    *bleApi.permissions
-                                )
-                            }
-                        }) {
-                            Text("BLEスキャン開始")
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        sensorData?.let { data ->
-                            Text("🌡 気温: ${"%.1f".format(data.temperature)}℃", fontSize = 24.sp)
-                            Text("💧 湿度: ${"%.1f".format(data.humidity)}%", fontSize = 24.sp)
-                            Text("💡 照度: ${data.light} lx", fontSize = 24.sp)
-                            Text("📈 気圧: ${"%.1f".format(data.pressure)} hPa", fontSize = 24.sp)
-                            Text("🔊 騒音: ${"%.1f".format(data.noise)} dB", fontSize = 24.sp)
-                            Text("🌫 TVOC: ${data.tvoc} ppb", fontSize = 24.sp)
-                            Text("🌬 CO2: ${data.co2} ppm", fontSize = 24.sp)
-                        }
-
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        if (normalMessage.isNotEmpty() && showNormalDialog) {
-                            AlertDialog(
-                                onDismissRequest = { showNormalDialog = false },
-                                confirmButton = {
-                                    TextButton(onClick = { showNormalDialog = false }) {
-                                        Text("OK")
-                                    }
-                                },
-                                title = { Text("ノーマル環境ゲット！") },
-                                text = { Text(normalMessage) }
                             )
+                        }
+                        composable("history") {
+                            HistoryScreen()
                         }
                     }
                 }
@@ -146,18 +104,9 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
         Log.d("permission", "拒否された: $perms")
     }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<String>,
-        grantResults: IntArray
-    ) {
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        EasyPermissions.onRequestPermissionsResult(
-            requestCode,
-            permissions,
-            grantResults,
-            this@MainActivity
-        )
+        EasyPermissions.onRequestPermissionsResult(requestCode, permissions, grantResults, this)
     }
 
     @OptIn(ExperimentalStdlibApi::class)
