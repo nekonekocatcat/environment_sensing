@@ -25,6 +25,9 @@ object NormalEnvironmentChecker {
             it.temperature > 28 &&
                     it.humidity > 70.0
         },
+        /*NormalEnvironment("チェック用") {
+                    it.humidity > 70.0
+        },*/
     )
 
     fun check(data: SensorData): String? {

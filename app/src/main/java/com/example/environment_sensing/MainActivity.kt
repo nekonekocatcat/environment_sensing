@@ -71,12 +71,12 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
                                             // 判定
                                             val rareName = RareEnvironmentChecker.check(data)
                                             if (rareName != null) {
-                                                rareMessage = "🎉 レア環境ゲット！ [$rareName]"
+                                                rareMessage = rareName
                                                 showRareDialog = true
                                             } else {
                                                 val normalName = NormalEnvironmentChecker.check(data)
                                                 if (normalName != null) {
-                                                    normalMessage = "✨ [$normalName]"
+                                                    normalMessage = normalName
                                                     showNormalDialog = true
                                                 }
                                             }
