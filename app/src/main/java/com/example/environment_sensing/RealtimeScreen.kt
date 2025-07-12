@@ -32,17 +32,27 @@ fun RealtimeScreen(
 ) {
     val scrollState = rememberScrollState()
 
-    // ★ ダイアログはComposableの最上位で呼ぶ（Columnの外）
+
     if (rareMessage.isNotEmpty() && showRareDialog) {
         AlertDialog(
             onDismissRequest = onDismissRare,
             confirmButton = {
-                TextButton(onClick = onDismissRare) {
-                    Text("OK")
+                Button(onClick = onDismissRare) {
+                    Text("OK", fontSize = 18.sp)
                 }
             },
-            title = { Text("レア環境ゲット！") },
-            text = { Text(rareMessage) }
+            title = {
+                Text("🎉 レア環境ゲット！", fontSize = 24.sp, color = MaterialTheme.colorScheme.primary)
+            },
+            text = {
+                Text(
+                    rareMessage,
+                    fontSize = 20.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            },
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            tonalElevation = 8.dp
         )
     }
 
@@ -50,12 +60,20 @@ fun RealtimeScreen(
         AlertDialog(
             onDismissRequest = onDismissNormal,
             confirmButton = {
-                TextButton(onClick = onDismissNormal) {
-                    Text("OK")
+                Button(onClick = onDismissNormal) {
+                    Text("OK", fontSize = 18.sp)
                 }
             },
-            title = { Text("ノーマル環境ゲット！") },
-            text = { Text(normalMessage) }
+            title = { Text("✨ノーマル環境ゲット！", fontSize = 24.sp, color = MaterialTheme.colorScheme.primary) },
+            text = {
+                Text(
+                    normalMessage,
+                    fontSize = 20.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            },
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            tonalElevation = 8.dp
         )
     }
 
