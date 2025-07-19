@@ -13,6 +13,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.*
+import com.example.environment_sensing.data.AppDatabase
+import com.example.environment_sensing.data.EnvironmentCollection
 import pub.devrel.easypermissions.EasyPermissions
 import kotlinx.coroutines.*
 import com.example.environment_sensing.ui.theme.Environment_sensingTheme
@@ -61,34 +63,53 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
                                 onDismissRare = { showRareDialog = false },
                                 onDismissNormal = { showNormalDialog = false },
                                 onStartScan = {
-                                    startScan { data ->
-                                        sensorData = data
+                                    if (EasyPermissions.hasPermissions(this@MainActivity, *bleApi.permissions)) {
+                                        startScan { data ->
+                                            sensorData = data
 
-                                        val currentTime = System.currentTimeMillis()
-                                        if (currentTime - lastSavedTime >= 10_000) {
-                                            lastSavedTime = currentTime
+                                            val currentTime = System.currentTimeMillis()
+                                            if (currentTime - lastSavedTime >= 10_000) {
+                                                lastSavedTime = currentTime
 
-                                            // 判定
-                                            val rareName = RareEnvironmentChecker.check(data)
-                                            if (rareName != null) {
-                                                rareMessage = rareName
-                                                showRareDialog = true
-                                            } else {
-                                                val normalName = NormalEnvironmentChecker.check(data)
-                                                if (normalName != null) {
-                                                    normalMessage = normalName
-                                                    showNormalDialog = true
+                                                val rareName = RareEnvironmentChecker.check(data)
+                                                if (rareName != null) {
+                                                    rareMessage = rareName
+                                                    showRareDialog = true
+                                                    coroutineScope.launch {
+                                                        val dao = AppDatabase.getInstance(applicationContext).environmentCollectionDao()
+                                                        dao.insertIfNotExists(EnvironmentCollection(rareName, System.currentTimeMillis()))
+                                                    }
+                                                } else {
+                                                    val normalName = NormalEnvironmentChecker.check(data)
+                                                    if (normalName != null) {
+                                                        normalMessage = normalName
+                                                        showNormalDialog = true
+                                                        coroutineScope.launch {
+                                                            val dao = AppDatabase.getInstance(applicationContext).environmentCollectionDao()
+                                                            dao.insertIfNotExists(EnvironmentCollection(normalName, System.currentTimeMillis()))
+                                                        }
+                                                    }
                                                 }
-                                            }
 
-                                            sensorLogger.log(data)
+                                                sensorLogger.log(data)
+                                            }
                                         }
+                                    } else {
+                                        EasyPermissions.requestPermissions(
+                                            this@MainActivity,
+                                            "BLEスキャンにはパーミッションが必要です",
+                                            1,
+                                            *bleApi.permissions
+                                        )
                                     }
                                 }
                             )
                         }
                         composable("history") {
                             HistoryScreen()
+                        }
+                        composable("collection") {
+                            CollectionScreen()
                         }
                     }
                 }
