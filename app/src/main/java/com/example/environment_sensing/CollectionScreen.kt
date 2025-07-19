@@ -26,11 +26,14 @@ fun CollectionScreen() {
     val allEnvironments = listOf(
         "低気圧×高温レア環境",
         "暗い×うるさいレア環境",
-        "乾燥×高温レア環境",
-        "高温×息苦しさレア環境",
+        "うるさい×汚いレア環境",
         "薄暗い×有機ガスレア環境",
-        "高気温×高湿度ノーマル環境",
-        "明るい×静かノーマル環境"
+        "高温×息苦しさレア環境",
+        "静かめ快適環境",
+        "涼しめ明るい環境",
+        "ざわざわ環境",
+        /*"チェック用",*/
+        "暗い静か環境"
     )
 
     var collected by remember { mutableStateOf<List<String>>(emptyList()) }
