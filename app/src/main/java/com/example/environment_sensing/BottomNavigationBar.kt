@@ -3,6 +3,7 @@ package com.example.environment_sensing
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.NavigationBar
@@ -16,7 +17,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 fun BottomNavigationBar(navController: NavHostController) {
     val items = listOf(
         NavItem("realtime", "リアルタイム", Icons.Filled.Home),
-        NavItem("history", "履歴", Icons.Filled.History)
+        NavItem("history", "履歴", Icons.Filled.History),
+        NavItem("collection", "コレクション", Icons.Filled.Star)
     )
 
     val navBackStackEntry = navController.currentBackStackEntryAsState()

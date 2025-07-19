@@ -10,7 +10,8 @@ import android.content.Context
     entities = [
         SensorRawRecord::class,
         ProcessedSensorRecord::class,
-        RareEnvironmentLog::class
+        RareEnvironmentLog::class,
+        EnvironmentCollection::class
     ],
     version = 1
 )
@@ -18,6 +19,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun sensorRawDao(): SensorRawDao
     abstract fun processedSensorDao(): ProcessedSensorDao
     abstract fun rareEnvironmentLogDao(): RareEnvironmentLogDao
+    abstract fun environmentCollectionDao(): EnvironmentCollectionDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
