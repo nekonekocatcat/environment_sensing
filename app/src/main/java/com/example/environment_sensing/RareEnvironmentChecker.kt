@@ -14,8 +14,8 @@ object RareEnvironmentChecker {
         RareEnvironment("暗い×うるさいレア環境") {/*クラブを想定*/
             it.light <= 30 && it.noise >= 80
         },
-        RareEnvironment("乾燥×高温レア環境") {/*砂漠のような環境を想定*/
-            it.humidity <= 30 && it.temperature >= 30
+        RareEnvironment("うるさい×汚いレア環境") {/*工事現場のような環境を想定*/
+            it.noise <= 150 && it.tvoc >= 250
         },
         RareEnvironment("薄暗い×有機ガスレア環境") {/*シーシャバーを想定*/
             it.light <= 30 && it.tvoc >= 200
