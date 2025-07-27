@@ -16,4 +16,7 @@ interface EnvironmentCollectionDao {
 
     @Query("SELECT COUNT(*) FROM EnvironmentCollection WHERE name = :name")
     suspend fun countByName(name: String): Int
+
+    @Query("UPDATE EnvironmentCollection SET isNew = 0")
+    suspend fun clearNewFlags()
 }

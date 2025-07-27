@@ -81,7 +81,8 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
                                                         dao.insertIfNotExists(EnvironmentCollection(
                                                             environmentName = rareName,
                                                             name = rareName,
-                                                            timestamp = System.currentTimeMillis()
+                                                            timestamp = System.currentTimeMillis(),
+                                                            isNew = true
                                                         ))
                                                         if (isFirstTime) {
                                                             withContext(Dispatchers.Main) {
@@ -100,7 +101,8 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
                                                             dao.insertIfNotExists(EnvironmentCollection(
                                                                 environmentName = normalName,
                                                                 name = normalName,
-                                                                timestamp = System.currentTimeMillis()
+                                                                timestamp = System.currentTimeMillis(),
+                                                                isNew = true
                                                             ))
                                                             if (isFirstTime) {
                                                                 withContext(Dispatchers.Main) {
