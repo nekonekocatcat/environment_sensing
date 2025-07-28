@@ -19,6 +19,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.environment_sensing.data.AppDatabase
+import com.example.environment_sensing.data.EnvironmentCollection
+import kotlinx.coroutines.delay
 
 @Composable
 fun CollectionScreen() {
@@ -37,11 +39,21 @@ fun CollectionScreen() {
     )
 
     var collected by remember { mutableStateOf<List<String>>(emptyList()) }
+    var collectedEnvironments by remember { mutableStateOf<List<EnvironmentCollection>>(emptyList()) }
+
 
     LaunchedEffect(Unit) {
         val dao = AppDatabase.getInstance(context).environmentCollectionDao()
         dao.getAll().collect { result ->
-            collected = result.map { it.environmentName }
+            collectedEnvironments = result
+        }
+    }
+
+    LaunchedEffect(collectedEnvironments) {
+        if (collectedEnvironments.any { it.isNew }) {
+            delay(5000)
+            val dao = AppDatabase.getInstance(context).environmentCollectionDao()
+            dao.clearNewFlags()
         }
     }
 
@@ -50,12 +62,21 @@ fun CollectionScreen() {
         Spacer(modifier = Modifier.height(16.dp))
 
         allEnvironments.forEach { env ->
-            val isCollected = collected.contains(env)
+            val match = collectedEnvironments.find { it.environmentName == env }
+            val isCollected = match != null
+            val isNew = match?.isNew == true
+
             Row(modifier = Modifier.padding(vertical = 8.dp)) {
-                if (isCollected) {
-                    Text("✅ $env", fontSize = 20.sp)
-                } else {
-                    Text("🔒 $env", fontSize = 20.sp, color = Color.Gray)
+                when {
+                    isCollected && isNew -> {
+                        Text("✅ $env 🆕", fontSize = 20.sp, color = Color.Black)
+                    }
+                    isCollected -> {
+                        Text("✅ $env", fontSize = 20.sp)
+                    }
+                    else -> {
+                        Text("🔒 $env", fontSize = 20.sp, color = Color.Gray)
+                    }
                 }
             }
         }
