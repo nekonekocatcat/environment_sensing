@@ -4,6 +4,12 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.bluetooth.le.ScanResult
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.PowerManager
+import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -28,6 +34,25 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreate(savedInstanceState: Bundle?) {
+        // 通知の権限のリクエスト
+        val permissions = arrayOf(android.Manifest.permission.POST_NOTIFICATIONS)
+        val requestCode = 100
+        if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            Toast.makeText(this, "通知が許可されていません", Toast.LENGTH_SHORT).show()
+            // リクエストを送信する処理
+            requestPermissions(permissions,requestCode)
+        } else {
+            Toast.makeText(this, "通知が許可されています", Toast.LENGTH_SHORT).show()
+        }
+        // バッテリーの最適化を外させる
+        val tmpIntent = Intent()
+        val packageName = packageName
+        val pm = getSystemService(POWER_SERVICE) as PowerManager
+        if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+            tmpIntent.action = Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
+            tmpIntent.data = Uri.parse("package:$packageName")
+            startActivity(tmpIntent)
+        }
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
@@ -54,6 +79,18 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
                         modifier = Modifier.padding(innerPadding)
                     ) {
                         composable("realtime") {
+                            Button(
+                                onClick = {
+                                    // Intentオブジェクト
+                                    val intent = Intent(application, LogService::class.java)
+                                    // サービスの起動
+                                    startService(intent)
+                                }
+                            ) {
+                                Text(
+                                    text="サービス起動"
+                                )
+                            }
                             RealtimeScreen(
                                 sensorData = sensorData,
                                 rareMessage = rareMessage,
