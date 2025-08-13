@@ -114,7 +114,18 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
                                                     showRareDialog = true
                                                     coroutineScope.launch {
                                                         val dao = AppDatabase.getInstance(applicationContext).environmentCollectionDao()
-                                                        dao.insertIfNotExists(EnvironmentCollection(rareName, System.currentTimeMillis()))
+                                                        val isFirstTime = dao.countByName(rareName) == 0
+                                                        dao.insertIfNotExists(EnvironmentCollection(
+                                                            environmentName = rareName,
+                                                            name = rareName,
+                                                            timestamp = System.currentTimeMillis(),
+                                                            isNew = true
+                                                        ))
+                                                        if (isFirstTime) {
+                                                            withContext(Dispatchers.Main) {
+                                                                navController.navigate("collection")
+                                                            }
+                                                        }
                                                     }
                                                 } else {
                                                     val normalName = NormalEnvironmentChecker.check(data)
@@ -123,7 +134,18 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
                                                         showNormalDialog = true
                                                         coroutineScope.launch {
                                                             val dao = AppDatabase.getInstance(applicationContext).environmentCollectionDao()
-                                                            dao.insertIfNotExists(EnvironmentCollection(normalName, System.currentTimeMillis()))
+                                                            val isFirstTime = dao.countByName(normalName) == 0
+                                                            dao.insertIfNotExists(EnvironmentCollection(
+                                                                environmentName = normalName,
+                                                                name = normalName,
+                                                                timestamp = System.currentTimeMillis(),
+                                                                isNew = true
+                                                            ))
+                                                            if (isFirstTime) {
+                                                                withContext(Dispatchers.Main) {
+                                                                    navController.navigate("collection")
+                                                                }
+                                                            }
                                                         }
                                                     }
                                                 }

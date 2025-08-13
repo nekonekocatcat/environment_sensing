@@ -6,5 +6,7 @@ import androidx.room.PrimaryKey
 @Entity
 data class EnvironmentCollection(
     @PrimaryKey val environmentName: String,
-    val timestamp: Long
+    val name: String,
+    val timestamp: Long,
+    val isNew: Boolean = true
 )
