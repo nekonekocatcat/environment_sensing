@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.*
 import com.example.environment_sensing.data.AppDatabase
 import com.example.environment_sensing.data.EnvironmentCollection
+import com.example.environment_sensing.data.NormalEnvironmentLog
 import pub.devrel.easypermissions.EasyPermissions
 import kotlinx.coroutines.*
 import com.example.environment_sensing.ui.theme.Environment_sensingTheme
@@ -141,6 +142,16 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
                                                                 timestamp = System.currentTimeMillis(),
                                                                 isNew = true
                                                             ))
+
+                                                            // 🔽 ここから追加！ノーマル環境ログを保存する処理
+                                                            val normalLogDao = AppDatabase.getInstance(applicationContext).normalEnvironmentLogDao()
+                                                            normalLogDao.insert(
+                                                                NormalEnvironmentLog(
+                                                                    environmentName = normalName,
+                                                                    timestamp = System.currentTimeMillis()
+                                                                )
+                                                            )
+
                                                             if (isFirstTime) {
                                                                 withContext(Dispatchers.Main) {
                                                                     navController.navigate("collection")
