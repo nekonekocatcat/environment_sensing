@@ -22,8 +22,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.*
 import com.example.environment_sensing.ui.theme.Environment_sensingTheme
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -87,7 +89,11 @@ class MainActivity : ComponentActivity() {
                                 normalMessage = normalMessage,
                                 onStartScan = {
                                     if (hasRequiredPermissions()) {
-                                        startLogService()
+                                        if (hasRequiredPermissions()) {
+                                            startLogService()
+                                        } else {
+                                            permissionLauncher.launch(REQUIRED_PERMISSIONS)
+                                        }
 
                                         val bleApi = BLEApi()
                                         bleApi.startBLEBeaconScan(this@MainActivity) { beacon ->
@@ -95,7 +101,9 @@ class MainActivity : ComponentActivity() {
                                             if (beacon?.device?.address == "C1:8B:A1:8E:26:FB" && advData != null) {
                                                 val data = parseAdvertisementData(advData)
                                                 if (data != null) {
-                                                    sensorData = data
+                                                    lifecycleScope.launch {
+                                                        SensorEventBus.sensorData.emit(data)
+                                                    }
                                                 }
                                             }
                                         }
