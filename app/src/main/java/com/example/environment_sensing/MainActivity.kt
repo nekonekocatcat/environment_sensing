@@ -2,72 +2,67 @@ package com.example.environment_sensing
 
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
-import android.bluetooth.le.ScanResult
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.PowerManager
 import android.provider.Settings
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.navigation.compose.*
-import com.example.environment_sensing.data.AppDatabase
-import com.example.environment_sensing.data.EnvironmentCollection
-import com.example.environment_sensing.data.NormalEnvironmentLog
-import pub.devrel.easypermissions.EasyPermissions
-import kotlinx.coroutines.*
 import com.example.environment_sensing.ui.theme.Environment_sensingTheme
 
-class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
-    private lateinit var bleApi: BLEApi
-    private lateinit var sensorLogger: SensorLogger
+class MainActivity : ComponentActivity() {
 
-    private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private var lastSavedTime = 0L
+    private val REQUIRED_PERMISSIONS = arrayOf(
+        android.Manifest.permission.BLUETOOTH_SCAN,
+        android.Manifest.permission.BLUETOOTH_CONNECT,
+        android.Manifest.permission.BLUETOOTH_ADVERTISE,
+        android.Manifest.permission.FOREGROUND_SERVICE,
+        android.Manifest.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE,
+        android.Manifest.permission.POST_NOTIFICATIONS,
+        android.Manifest.permission.ACCESS_FINE_LOCATION
+    )
+
+    private val permissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+            val allGranted = permissions.all { it.value }
+            if (allGranted) {
+                startLogService()
+            } else {
+                Toast.makeText(this, "必要な権限が許可されませんでした", Toast.LENGTH_SHORT).show()
+            }
+        }
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreate(savedInstanceState: Bundle?) {
-        // 通知の権限のリクエスト
-        val permissions = arrayOf(android.Manifest.permission.POST_NOTIFICATIONS)
-        val requestCode = 100
-        if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            Toast.makeText(this, "通知が許可されていません", Toast.LENGTH_SHORT).show()
-            // リクエストを送信する処理
-            requestPermissions(permissions,requestCode)
-        } else {
-            Toast.makeText(this, "通知が許可されています", Toast.LENGTH_SHORT).show()
-        }
-        // バッテリーの最適化を外させる
-        val tmpIntent = Intent()
-        val packageName = packageName
+        // バッテリー最適化解除
         val pm = getSystemService(POWER_SERVICE) as PowerManager
         if (!pm.isIgnoringBatteryOptimizations(packageName)) {
-            tmpIntent.action = Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
-            tmpIntent.data = Uri.parse("package:$packageName")
-            startActivity(tmpIntent)
+            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+            intent.data = Uri.parse("package:$packageName")
+            startActivity(intent)
         }
+
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-
-        bleApi = BLEApi()
-        sensorLogger = SensorLogger(applicationContext, coroutineScope)
 
         setContent {
             Environment_sensingTheme {
                 val navController = rememberNavController()
-                var sensorData by remember { mutableStateOf<SensorData?>(null) }
-                var rareMessage by remember { mutableStateOf("") }
-                var normalMessage by remember { mutableStateOf("") }
-                var showRareDialog by remember { mutableStateOf(false) }
-                var showNormalDialog by remember { mutableStateOf(false) }
 
                 Scaffold(
                     bottomBar = {
@@ -80,99 +75,38 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
                         modifier = Modifier.padding(innerPadding)
                     ) {
                         composable("realtime") {
-                            Button(
-                                onClick = {
-                                    // Intentオブジェクト
-                                    val intent = Intent(application, LogService::class.java)
-                                    // サービスの起動
-                                    startService(intent)
-                                }
-                            ) {
-                                Text(
-                                    text="サービス起動"
-                                )
-                            }
+                            var sensorData by remember { mutableStateOf<SensorData?>(null) }
+                            var rareMessage by remember { mutableStateOf("") }
+                            var normalMessage by remember { mutableStateOf("") }
+                            var showRareDialog by remember { mutableStateOf(false) }
+                            var showNormalDialog by remember { mutableStateOf(false) }
+
                             RealtimeScreen(
                                 sensorData = sensorData,
                                 rareMessage = rareMessage,
                                 normalMessage = normalMessage,
-                                showRareDialog = showRareDialog,
-                                showNormalDialog = showNormalDialog,
-                                onDismissRare = { showRareDialog = false },
-                                onDismissNormal = { showNormalDialog = false },
                                 onStartScan = {
-                                    if (EasyPermissions.hasPermissions(this@MainActivity, *bleApi.permissions)) {
-                                        startScan { data ->
-                                            sensorData = data
+                                    if (hasRequiredPermissions()) {
+                                        startLogService()
 
-                                            val currentTime = System.currentTimeMillis()
-                                            if (currentTime - lastSavedTime >= 10_000) {
-                                                lastSavedTime = currentTime
-
-                                                val rareName = RareEnvironmentChecker.check(data)
-                                                if (rareName != null) {
-                                                    rareMessage = rareName
-                                                    showRareDialog = true
-                                                    coroutineScope.launch {
-                                                        val dao = AppDatabase.getInstance(applicationContext).environmentCollectionDao()
-                                                        val isFirstTime = dao.countByName(rareName) == 0
-                                                        dao.insertIfNotExists(EnvironmentCollection(
-                                                            environmentName = rareName,
-                                                            name = rareName,
-                                                            timestamp = System.currentTimeMillis(),
-                                                            isNew = true
-                                                        ))
-                                                        if (isFirstTime) {
-                                                            withContext(Dispatchers.Main) {
-                                                                navController.navigate("collection")
-                                                            }
-                                                        }
-                                                    }
-                                                } else {
-                                                    val normalName = NormalEnvironmentChecker.check(data)
-                                                    if (normalName != null) {
-                                                        normalMessage = normalName
-                                                        showNormalDialog = true
-                                                        coroutineScope.launch {
-                                                            val dao = AppDatabase.getInstance(applicationContext).environmentCollectionDao()
-                                                            val isFirstTime = dao.countByName(normalName) == 0
-                                                            dao.insertIfNotExists(EnvironmentCollection(
-                                                                environmentName = normalName,
-                                                                name = normalName,
-                                                                timestamp = System.currentTimeMillis(),
-                                                                isNew = true
-                                                            ))
-
-                                                            // 🔽 ここから追加！ノーマル環境ログを保存する処理
-                                                            val normalLogDao = AppDatabase.getInstance(applicationContext).normalEnvironmentLogDao()
-                                                            normalLogDao.insert(
-                                                                NormalEnvironmentLog(
-                                                                    environmentName = normalName,
-                                                                    timestamp = System.currentTimeMillis()
-                                                                )
-                                                            )
-
-                                                            if (isFirstTime) {
-                                                                withContext(Dispatchers.Main) {
-                                                                    navController.navigate("collection")
-                                                                }
-                                                            }
-                                                        }
-                                                    }
+                                        val bleApi = BLEApi()
+                                        bleApi.startBLEBeaconScan(this@MainActivity) { beacon ->
+                                            val advData = beacon?.scanRecord?.bytes
+                                            if (beacon?.device?.address == "C1:8B:A1:8E:26:FB" && advData != null) {
+                                                val data = parseAdvertisementData(advData)
+                                                if (data != null) {
+                                                    sensorData = data
                                                 }
-
-                                                sensorLogger.log(data)
                                             }
                                         }
                                     } else {
-                                        EasyPermissions.requestPermissions(
-                                            this@MainActivity,
-                                            "BLEスキャンにはパーミッションが必要です",
-                                            1,
-                                            *bleApi.permissions
-                                        )
+                                        permissionLauncher.launch(REQUIRED_PERMISSIONS)
                                     }
-                                }
+                                },
+                                showRareDialog = showRareDialog,
+                                showNormalDialog = showNormalDialog,
+                                onDismissRare = { showRareDialog = false },
+                                onDismissNormal = { showNormalDialog = false }
                             )
                         }
                         composable("history") {
@@ -187,32 +121,18 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
         }
     }
 
-    override fun onPermissionsGranted(requestCode: Int, perms: List<String>) {
-        Log.d("permission", "許可された: $perms")
+    private fun hasRequiredPermissions(): Boolean {
+        return REQUIRED_PERMISSIONS.all {
+            ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
+        }
     }
 
-    override fun onPermissionsDenied(requestCode: Int, perms: List<String>) {
-        Log.d("permission", "拒否された: $perms")
-    }
-
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        EasyPermissions.onRequestPermissionsResult(requestCode, permissions, grantResults, this)
-    }
-
-    @OptIn(ExperimentalStdlibApi::class)
-    private fun startScan(onDataParsed: (SensorData) -> Unit) {
-        bleApi.startBLEBeaconScan(this) { beacon: ScanResult? ->
-            val mac = beacon?.device?.address
-            val advData = beacon?.scanRecord?.bytes
-            if (mac == "C1:8B:A1:8E:26:FB") {
-                advData?.let {
-                    val data = parseAdvertisementData(it)
-                    if (data != null) {
-                        onDataParsed(data)
-                    }
-                }
-            }
+    private fun startLogService() {
+        val intent = Intent(application, LogService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            ContextCompat.startForegroundService(this, intent)
+        } else {
+            startService(intent)
         }
     }
 
@@ -242,4 +162,5 @@ class MainActivity : ComponentActivity(), EasyPermissions.PermissionCallbacks {
                 ((this[index + 1].toInt() and 0xFF) shl 8) or
                 ((this[index + 2].toInt() and 0xFF) shl 16)
     }
+
 }

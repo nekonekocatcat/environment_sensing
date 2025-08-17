@@ -40,36 +40,22 @@ class BLEApi {
         }
     }
     @SuppressLint("MissingPermission")
-    fun startBLEBeaconScan(context: Context,resultBeacon:(ScanResult?)->Unit){
-        //パーミッションが許可された時にIbeaconが動く
+    fun startBLEBeaconScan(context: Context, resultBeacon: (ScanResult?) -> Unit) {
         leScanCallback = object : ScanCallback() {
             override fun onScanResult(callbackType: Int, result: ScanResult) {
-                //nameをログで出力する。nullだった場合No Name
-                //Log.d("scanResult", result.device.toString() ?: "No Name")
-                val uuids = result.scanRecord?.serviceUuids
-                var uuidString = ""
-                if(uuids != null){
-                    for(uuid in uuids) {
-                        uuidString += uuid.toString() + ","
-                    }
-                }
-//                Log.d("scanResult", result.device.address + " , " + uuidString + " , " + result.rssi)
                 resultBeacon(result)
             }
         }
-        if(EasyPermissions.hasPermissions(context, *permissions)){
-            // スキャンのセッティング
-            val scanSettings = ScanSettings.Builder()
-                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-                .setReportDelay(0)
-                .build()
-            val scanFilters = mutableListOf<ScanFilter>()
-            val mUuid = UUID.fromString("0000fe9f-0000-1000-8000-00805f9b34fb")
-            val filter = ScanFilter.Builder()
-                .setServiceUuid(null)
-                .build()
-            scanFilters.add(filter)
-            bluetoothLeScanner?.startScan(scanFilters, scanSettings, leScanCallback)
+
+        val scanSettings = ScanSettings.Builder()
+            .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+            .setReportDelay(0)
+            .build()
+
+        if (EasyPermissions.hasPermissions(context, *permissions)) {
+            bluetoothLeScanner?.startScan(null, scanSettings, leScanCallback)
+        } else {
+            android.util.Log.e("BLE", "Permissions not granted, cannot start scan")
         }
     }
     @SuppressLint("MissingPermission")

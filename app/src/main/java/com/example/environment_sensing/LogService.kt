@@ -1,77 +1,130 @@
 package com.example.environment_sensing
 
+import android.Manifest
 import android.app.PendingIntent
 import android.app.Service
+import android.bluetooth.le.ScanResult
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.annotation.RequiresApi
+import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 
-class LogService: Service() {
+class LogService : Service() {
     companion object {
         const val CHANNEL_ID = "12345"
     }
+
     private lateinit var notificationManager: NotificationManagerCompat
+    private lateinit var bleApi: BLEApi
+    private lateinit var sensorLogger: SensorLogger
+    private var lastSavedTime = 0L
 
     override fun onCreate() {
         super.onCreate()
+        bleApi = BLEApi()
+        sensorLogger = SensorLogger(
+            applicationContext,
+            CoroutineScope(Dispatchers.IO + SupervisorJob()),
+            onRareDetected = { showNotification("レア環境ゲット！", it) },
+            onNormalDetected = { showNotification("ノーマル環境ゲット！", it) }
+        )
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // バックグラウンドでログを出力し続ける処理（1秒ごとにログ）
-        Log.d("Service", "サービスが開始")
-        // 通知マネージャーを取得（通知チャンネル作成などに使用）
         notificationManager = NotificationManagerCompat.from(this)
-
-        // 通知チャンネルの作成
         val channel = NotificationChannelCompat.Builder(CHANNEL_ID, NotificationManagerCompat.IMPORTANCE_DEFAULT)
-            .setName("ログ出力")
+            .setName("環境ログ出力")
             .build()
-        // チャンネルを通知マネージャーに登録
         notificationManager.createNotificationChannel(channel)
 
-        // 通知をタップしたときにMainActivityを開くIntentを作成
-        val openIntent = Intent(this, MainActivity::class.java).let {
-            PendingIntent.getActivity(this, 0, it, PendingIntent.FLAG_IMMUTABLE)
-        }
+        val openIntent = PendingIntent.getActivity(
+            this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE
+        )
 
-        // 通知を作成
         val notification = NotificationCompat.Builder(this, channel.id)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle("ログ出力中")
-            .setContentText("フォアグラウンドサービスでログを出力し続けています")
+            .setContentTitle("環境データ取得中")
+            .setContentText("バックグラウンドで環境を監視しています")
             .setContentIntent(openIntent)
             .setOngoing(true)
             .build()
-        // 通知の表示
         startForeground(1212, notification)
-        var i = 0
-        CoroutineScope(Dispatchers.IO).launch {
-            while (true) {
-                Log.d("Service", i.toString())
-                i++
-                delay(1000)
-            }
-        }
+
+        startBLEScan()
         return START_STICKY
     }
 
-    override fun onDestroy() {
-        // サービス終了時の処理
-        Log.d("Service", "サービスが終了")
-        super.onDestroy()
+    private fun startBLEScan() {
+        bleApi.startBLEBeaconScan(this) { beacon: ScanResult? ->
+            val mac = beacon?.device?.address
+            val advData = beacon?.scanRecord?.bytes
+            if (mac == "C1:8B:A1:8E:26:FB") {
+                advData?.let {
+                    val data = parseAdvertisementData(it)
+                    if (data != null) {
+                        val currentTime = System.currentTimeMillis()
+                        if (currentTime - lastSavedTime >= 10_000) {
+                            lastSavedTime = currentTime
+                            sensorLogger.log(data)
+                        }
+                    }
+                }
+            }
+        }
     }
 
-    override fun onBind(intent: Intent?): IBinder? {
-        return null
+    private fun parseAdvertisementData(advData: ByteArray): SensorData? {
+        return try {
+            val temperature = advData.getLittleEndianUInt16(9) / 100.0
+            val humidity = advData.getLittleEndianUInt16(11) / 100.0
+            val light = advData.getLittleEndianUInt16(13)
+            val pressure = advData.getLittleEndianUInt24(15) / 1000.0
+            val noise = advData.getLittleEndianUInt16(19) / 100.0
+            val tvoc = advData.getLittleEndianUInt16(21)
+            val co2 = advData.getLittleEndianUInt16(23)
+            SensorData(temperature, humidity, light, pressure, noise, tvoc, co2)
+        } catch (e: Exception) {
+            Log.e("parseError", "パース失敗: ${e.message}")
+            null
+        }
     }
+
+    private fun ByteArray.getLittleEndianUInt16(index: Int) =
+        (this[index].toInt() and 0xFF) or ((this[index + 1].toInt() and 0xFF) shl 8)
+
+    private fun ByteArray.getLittleEndianUInt24(index: Int) =
+        (this[index].toInt() and 0xFF) or
+                ((this[index + 1].toInt() and 0xFF) shl 8) or
+                ((this[index + 2].toInt() and 0xFF) shl 16)
+
+    private fun showNotification(title: String, message: String) {
+        val openIntent = PendingIntent.getActivity(
+            this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle(title)
+            .setContentText(message)
+            .setContentIntent(openIntent)
+            .setAutoCancel(true)
+            .build()
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+        notificationManager.notify((0..9999).random(), notification)
+    }
+
+    override fun onBind(intent: Intent?): IBinder? = null
 }
