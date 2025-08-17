@@ -18,9 +18,12 @@ import androidx.compose.ui.unit.sp
 import com.example.environment_sensing.SensorData
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 
 @Composable
 fun RealtimeScreen(
+    viewModel: RealtimeViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
     sensorData: SensorData?,
     rareMessage: String,
     normalMessage: String,
@@ -32,6 +35,11 @@ fun RealtimeScreen(
 ) {
     val scrollState = rememberScrollState()
 
+    val sensorData by viewModel.sensorData.collectAsState()
+    val rareMessage by viewModel.rareMessage.collectAsState()
+    val normalMessage by viewModel.normalMessage.collectAsState()
+    val showRareDialog by viewModel.showRareDialog.collectAsState()
+    val showNormalDialog by viewModel.showNormalDialog.collectAsState()
 
     if (rareMessage.isNotEmpty() && showRareDialog) {
         AlertDialog(
