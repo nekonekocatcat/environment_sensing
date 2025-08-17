@@ -87,7 +87,6 @@ class MainActivity : ComponentActivity() {
                                 normalMessage = normalMessage,
                                 onStartScan = {
                                     if (hasRequiredPermissions()) {
-                                        // サービス起動
                                         startLogService()
 
                                         val bleApi = BLEApi()
