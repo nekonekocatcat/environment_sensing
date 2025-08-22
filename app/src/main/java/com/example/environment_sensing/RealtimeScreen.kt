@@ -24,14 +24,7 @@ import androidx.compose.runtime.getValue
 @Composable
 fun RealtimeScreen(
     viewModel: RealtimeViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
-    sensorData: SensorData?,
-    rareMessage: String,
-    normalMessage: String,
-    onStartScan: () -> Unit,
-    showRareDialog: Boolean,
-    showNormalDialog: Boolean,
-    onDismissRare: () -> Unit,
-    onDismissNormal: () -> Unit
+    onStartScan: () -> Unit
 ) {
     val scrollState = rememberScrollState()
 
@@ -41,17 +34,16 @@ fun RealtimeScreen(
     val showRareDialog by viewModel.showRareDialog.collectAsState()
     val showNormalDialog by viewModel.showNormalDialog.collectAsState()
 
+    // 🎉 レア環境ゲットダイアログ
     if (rareMessage.isNotEmpty() && showRareDialog) {
         AlertDialog(
-            onDismissRequest = onDismissRare,
+            onDismissRequest = { viewModel.dismissRare() },
             confirmButton = {
-                Button(onClick = onDismissRare) {
+                Button(onClick = { viewModel.dismissRare() }) {
                     Text("OK", fontSize = 18.sp)
                 }
             },
-            title = {
-                Text("🎉 レア環境ゲット！", fontSize = 24.sp, color = MaterialTheme.colorScheme.primary)
-            },
+            title = { Text("🎉 レア環境ゲット！", fontSize = 24.sp, color = MaterialTheme.colorScheme.primary) },
             text = {
                 Text(
                     rareMessage,
@@ -64,11 +56,12 @@ fun RealtimeScreen(
         )
     }
 
+    // ✨ ノーマル環境ゲットダイアログ
     if (normalMessage.isNotEmpty() && showNormalDialog) {
         AlertDialog(
-            onDismissRequest = onDismissNormal,
+            onDismissRequest = { viewModel.dismissNormal() },
             confirmButton = {
-                Button(onClick = onDismissNormal) {
+                Button(onClick = { viewModel.dismissNormal() }) {
                     Text("OK", fontSize = 18.sp)
                 }
             },
