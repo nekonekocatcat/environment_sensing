@@ -25,23 +25,14 @@ import kotlinx.coroutines.delay
 @Composable
 fun CollectionScreen() {
     val context = LocalContext.current
-    val allEnvironments = listOf(
-        "低気圧×高温レア環境",
-        "暗い×うるさいレア環境",
-        "うるさい×汚いレア環境",
-        "薄暗い×有機ガスレア環境",
-        "高温×息苦しさレア環境",
-        "静かめ快適環境",
-        "涼しめ明るい環境",
-        "ざわざわ環境",
-        /*"チェック用",*/
-        "暗い静か環境"
-    )
 
-    var collected by remember { mutableStateOf<List<String>>(emptyList()) }
+    //  Rare + Normal 両方から名前を集める
+    val allEnvironments = RareEnvironmentChecker.environments.map { it.name } +
+            NormalEnvironmentChecker.environments.map { it.name }
+
     var collectedEnvironments by remember { mutableStateOf<List<EnvironmentCollection>>(emptyList()) }
 
-
+    // DBから取得
     LaunchedEffect(Unit) {
         val dao = AppDatabase.getInstance(context).environmentCollectionDao()
         dao.getAll().collect { result ->
@@ -49,6 +40,7 @@ fun CollectionScreen() {
         }
     }
 
+    // 「NEW」フラグを5秒で消す
     LaunchedEffect(collectedEnvironments) {
         if (collectedEnvironments.any { it.isNew }) {
             delay(5000)
