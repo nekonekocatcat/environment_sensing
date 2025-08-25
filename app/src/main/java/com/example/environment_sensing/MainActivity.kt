@@ -72,12 +72,85 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             Environment_sensingTheme {
+                val realtimeVM: RealtimeViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+
+                LaunchedEffect(Unit) {
+                    realtimeVM.setScanning(LogService.isRunning)
+                }
+
                 val navController = rememberNavController()
 
-                Scaffold(
-                    bottomBar = {
-                        BottomNavigationBar(navController = navController)
+                val appContext = this@MainActivity.applicationContext
+
+                LaunchedEffect(Unit) {
+                    SensorEventBus.sensorData.collect { data ->
+                        val currentTime = System.currentTimeMillis()
+
+                        // ---- レア環境チェック ----
+                        val rareName = RareEnvironmentChecker.check(data)
+                        if (rareName != null) {
+                            val lastTime = lastShownRare[rareName] ?: 0L
+                            if (currentTime - lastTime > cooldownMillis) {
+                                lastShownRare[rareName] = currentTime
+
+                                val isFirstTime = withContext(Dispatchers.IO) {
+                                    val dao = AppDatabase.getInstance(appContext).environmentCollectionDao()
+                                    val first = dao.countByName(rareName) == 0
+                                    dao.insertIfNotExists(
+                                        EnvironmentCollection(
+                                            environmentName = rareName,
+                                            name = rareName,
+                                            timestamp = currentTime
+                                        )
+                                    )
+                                    first
+                                }
+                                if (isFirstTime) {
+                                    withContext(Dispatchers.Main.immediate) {
+                                        navController.navigate("collection") {
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    }
+                                }
+                            }
+                            return@collect
+                        }
+
+                        // ---- ノーマル環境チェック ----
+                        val normalName = NormalEnvironmentChecker.check(data)
+                        if (normalName != null) {
+                            val lastTime = lastShownNormal[normalName] ?: 0L
+                            if (currentTime - lastTime > cooldownMillis) {
+                                lastShownNormal[normalName] = currentTime
+
+                                val isFirstTime = withContext(Dispatchers.IO) {
+                                    val dao = AppDatabase.getInstance(appContext).environmentCollectionDao()
+                                    val first = dao.countByName(normalName) == 0
+                                    dao.insertIfNotExists(
+                                        EnvironmentCollection(
+                                            environmentName = normalName,
+                                            name = normalName,
+                                            timestamp = currentTime
+                                        )
+                                    )
+                                    first
+                                }
+                                if (isFirstTime) {
+                                    withContext(Dispatchers.Main.immediate) {
+                                        navController.navigate("collection") {
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
+                }
+
+                Scaffold(
+                    bottomBar = { BottomNavigationBar(navController = navController) }
                 ) { innerPadding ->
                     NavHost(
                         navController = navController,
@@ -86,96 +159,23 @@ class MainActivity : ComponentActivity() {
                     ) {
                         composable("realtime") {
                             RealtimeScreen(
-                                onStartScan = {
-                                    if (hasRequiredPermissions()) {
+                                viewModel = realtimeVM,
+                                onToggleScan = { enable ->
+                                    if (enable) {
                                         if (hasRequiredPermissions()) {
                                             startLogService()
                                         } else {
                                             permissionLauncher.launch(REQUIRED_PERMISSIONS)
                                         }
-
-                                        val bleApi = BLEApi()
-                                        bleApi.startBLEBeaconScan(this@MainActivity) { beacon ->
-                                            val advData = beacon?.scanRecord?.bytes
-                                            if (beacon?.device?.address == "C1:8B:A1:8E:26:FB" && advData != null) {
-                                                val data = parseAdvertisementData(advData)
-                                                if (data != null) {
-                                                    lifecycleScope.launch {
-                                                        // センサーデータ送信
-                                                        SensorEventBus.sensorData.emit(data)
-
-                                                        // レア環境チェック
-                                                        val rareName = RareEnvironmentChecker.check(data)
-                                                        val currentTime = System.currentTimeMillis()
-                                                        if (rareName != null) {
-                                                            val lastTime = lastShownRare[rareName] ?: 0
-                                                            if (currentTime - lastTime > cooldownMillis) {
-                                                                lastShownRare[rareName] = currentTime
-
-                                                                lifecycleScope.launch {
-                                                                    val dao = AppDatabase.getInstance(applicationContext).environmentCollectionDao()
-                                                                    val isFirstTime = dao.countByName(rareName) == 0
-                                                                    dao.insertIfNotExists(
-                                                                        EnvironmentCollection(
-                                                                            environmentName = rareName,
-                                                                            name = rareName,
-                                                                            timestamp = currentTime
-                                                                        )
-                                                                    )
-                                                                    SensorEventBus.rareEvent.emit(rareName)
-
-                                                                    if (isFirstTime) {
-                                                                        withContext(Dispatchers.Main) {
-                                                                            navController.navigate("collection")
-                                                                        }
-                                                                    }
-                                                                }
-                                                            }
-                                                        } else {
-                                                            // ノーマル環境チェック
-                                                            val normalName = NormalEnvironmentChecker.check(data)
-                                                            if (normalName != null) {
-                                                                val lastTime = lastShownNormal[normalName] ?: 0
-                                                                if (currentTime - lastTime > cooldownMillis) {
-                                                                    lastShownNormal[normalName] = currentTime
-
-                                                                    lifecycleScope.launch {
-                                                                        val dao = AppDatabase.getInstance(applicationContext).environmentCollectionDao()
-                                                                        val isFirstTime = dao.countByName(normalName) == 0
-                                                                        dao.insertIfNotExists(
-                                                                            EnvironmentCollection(
-                                                                                environmentName = normalName,
-                                                                                name = normalName,
-                                                                                timestamp = currentTime
-                                                                            )
-                                                                        )
-                                                                        SensorEventBus.normalEvent.emit(normalName)
-
-                                                                        if (isFirstTime) {
-                                                                            withContext(Dispatchers.Main) {
-                                                                                navController.navigate("collection")
-                                                                            }
-                                                                        }
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
                                     } else {
-                                        permissionLauncher.launch(REQUIRED_PERMISSIONS)
+                                        stopService(Intent(this@MainActivity, LogService::class.java))
                                     }
+                                    realtimeVM.setScanning(enable)
                                 }
                             )
                         }
-                        composable("history") {
-                            HistoryScreen()
-                        }
-                        composable("collection") {
-                            CollectionScreen()
-                        }
+                        composable("history") { HistoryScreen() }
+                        composable("collection") { CollectionScreen() }
                     }
                 }
             }

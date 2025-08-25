@@ -14,26 +14,74 @@ import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import com.example.environment_sensing.data.AppDatabase
+import com.example.environment_sensing.data.EnvironmentCollection
 import kotlinx.coroutines.*
 
 class LogService : Service() {
+
     companion object {
-        const val CHANNEL_ID = "12345"
+        const val CHANNEL_ID = "env_log_channel"
+        @Volatile var isRunning: Boolean = false
     }
 
     private lateinit var notificationManager: NotificationManagerCompat
     private lateinit var bleApi: BLEApi
     private lateinit var sensorLogger: SensorLogger
-    private var lastSavedTime = 0L
+    private val uiScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+
 
     override fun onCreate() {
         super.onCreate()
         bleApi = BLEApi()
+        isRunning = true
+
+        val appCtx = applicationContext
+        val ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
         sensorLogger = SensorLogger(
-            applicationContext,
+            appCtx,
             CoroutineScope(Dispatchers.IO + SupervisorJob()),
-            onRareDetected = { showNotification("レア環境ゲット！", it) },
-            onNormalDetected = { showNotification("ノーマル環境ゲット！", it) }
+            onRareDetected = { name ->
+                showNotification("レア環境ゲット！", name)
+                ioScope.launch {
+                    val dao = AppDatabase.getInstance(appCtx).environmentCollectionDao()
+                    val isFirst = dao.countByName(name) == 0
+                    if (isFirst) {
+                        dao.insertIfNotExists(
+                            EnvironmentCollection(
+                                environmentName = name,
+                                name = name,
+                                timestamp = System.currentTimeMillis()
+                            )
+                        )
+                    }
+                    withContext(Dispatchers.Main) {
+                        Log.d("FirstEvent", "Emit rareFirstEvent isFirst=$isFirst name=$name")
+                        SensorEventBus.rareEvent.emit(name)
+                        if (isFirst) SensorEventBus.rareFirstEvent.emit(name)
+                    }
+                }
+            },
+            onNormalDetected = { name ->
+                showNotification("ノーマル環境ゲット！", name)
+                ioScope.launch {
+                    val dao = AppDatabase.getInstance(appCtx).environmentCollectionDao()
+                    val isFirst = dao.countByName(name) == 0
+                    if (isFirst) {
+                        dao.insertIfNotExists(
+                            EnvironmentCollection(
+                                environmentName = name,
+                                name = name,
+                                timestamp = System.currentTimeMillis()
+                            )
+                        )
+                    }
+                    Log.d("FirstEvent", "Emit normalFirstEvent isFirst=$isFirst name=$name")
+                    SensorEventBus.normalEvent.emit(name)
+                    if (isFirst) SensorEventBus.normalFirstEvent.emit(name)
+                }
+            }
         )
     }
 
@@ -62,6 +110,8 @@ class LogService : Service() {
         return START_STICKY
     }
 
+    private var lastSavedTime = 0L
+
     private fun startBLEScan() {
         bleApi.startBLEBeaconScan(this) { beacon: ScanResult? ->
             val mac = beacon?.device?.address
@@ -70,15 +120,24 @@ class LogService : Service() {
                 advData?.let {
                     val data = parseAdvertisementData(it)
                     if (data != null) {
-                        val currentTime = System.currentTimeMillis()
-                        if (currentTime - lastSavedTime >= 10_000) {
-                            lastSavedTime = currentTime
+                        uiScope.launch { SensorEventBus.sensorData.emit(data) }
+
+                        val now = System.currentTimeMillis()
+                        if (now - lastSavedTime >= 10_000) {
+                            lastSavedTime = now
                             sensorLogger.log(data)
                         }
                     }
                 }
             }
         }
+    }
+
+
+    override fun onDestroy() {
+        super.onDestroy()
+        isRunning = false
+        uiScope.cancel()
     }
 
     private fun parseAdvertisementData(advData: ByteArray): SensorData? {
