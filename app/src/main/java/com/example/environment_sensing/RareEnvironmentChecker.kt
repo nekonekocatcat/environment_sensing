@@ -15,7 +15,7 @@ object RareEnvironmentChecker {
 
         RareEnvironment("暗い×うるさいレア環境", {
             it.light <= 30 && it.noise >= 85
-        }, requireDurationMillis = 60_000), // クラブ・ライブハウス
+        }, requireDurationMillis = 10_000), // クラブ・ライブハウス
 
         RareEnvironment("うるさい×汚いレア環境", {
             it.noise >= 100 && it.tvoc >= 250
