@@ -53,7 +53,13 @@ object RareEnvironmentChecker {
 
         RareEnvironment("映画館レア環境", {
             it.light < 20 && it.noise in 40.0..55.0 && it.co2 in 800..1500
-        }, requireDurationMillis = 120_000) // 暗くて静か、ちょっと二酸化炭素多め
+        }, requireDurationMillis = 120_000), // 暗くて静か、ちょっと二酸化炭素多め
+
+        // 実験用レア環境
+        RareEnvironment("めちゃ明るいレア環境（実験用）", {
+            it.light >= 800
+        }, requireDurationMillis = 5_000)
+
     )
 
     private val startedAt = mutableMapOf<String, Long>()
