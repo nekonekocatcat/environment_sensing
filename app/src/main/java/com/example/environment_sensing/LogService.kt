@@ -43,6 +43,10 @@ class LogService : Service() {
             appCtx,
             CoroutineScope(Dispatchers.IO + SupervisorJob()),
             onRareDetected = { name ->
+//                if (!CooldownGate.allow(name, isRare = true)) {
+//                    Log.d("Cooldown", "skip rare: $name")
+//                    return@SensorLogger
+//                }
                 showNotification("レア環境ゲット！", name)
                 ioScope.launch {
                     val dao = AppDatabase.getInstance(appCtx).environmentCollectionDao()
@@ -64,6 +68,10 @@ class LogService : Service() {
                 }
             },
             onNormalDetected = { name ->
+//                if (!CooldownGate.allow(name, isRare = false)) {
+//                    Log.d("Cooldown", "skip normal: $name")
+//                    return@SensorLogger
+//                }
                 showNotification("ノーマル環境ゲット！", name)
                 ioScope.launch {
                     val dao = AppDatabase.getInstance(appCtx).environmentCollectionDao()

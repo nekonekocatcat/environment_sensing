@@ -21,12 +21,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.environment_sensing.AppMode
+import com.example.environment_sensing.ModeToggleRow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RealtimeScreen(
     viewModel: RealtimeViewModel,
-    onToggleScan: (Boolean) -> Unit
+    onToggleScan: (Boolean) -> Unit,
+    onSwitchToSimple: () -> Unit,
 ) {
     val sensorData by viewModel.sensorData.collectAsState()
     val isScanning by viewModel.isScanning.collectAsState()
@@ -75,7 +78,7 @@ fun RealtimeScreen(
             )
         },
         floatingActionButtonPosition = FabPosition.End
-    ) { innerPadding ->
+    ){ innerPadding ->
         Column(
             modifier = Modifier
                 .padding(innerPadding)
@@ -83,6 +86,14 @@ fun RealtimeScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+
+            ModeToggleRow(
+                current = AppMode.Full,
+                onSelect = { mode ->
+                    if (mode == AppMode.Simple) onSwitchToSimple()
+                }
+            )
+
             val (titleText, descText) = when (phase) {
                 RealtimeViewModel.ScanUiPhase.Idle     -> "待機中" to "探検の準備OK！"
                 RealtimeViewModel.ScanUiPhase.Starting -> "起動中…" to "センサーと接続中…"
@@ -104,6 +115,27 @@ fun RealtimeScreen(
             val sensorItems = buildSensorItems(viewModel, sensorData)
             SensorGrid(sensorItems)
         }
+    }
+}
+
+private enum class Mode { Full, Simple }
+
+@Composable
+private fun ModeToggleRow(
+    current: Mode,
+    onSelect: (Mode) -> Unit
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FilterChip(
+            selected = current == Mode.Full,
+            onClick = { onSelect(Mode.Full) },
+            label = { Text("🎮 通常") }
+        )
+        FilterChip(
+            selected = current == Mode.Simple,
+            onClick = { onSelect(Mode.Simple) },
+            label = { Text("🧪 実験") }
+        )
     }
 }
 

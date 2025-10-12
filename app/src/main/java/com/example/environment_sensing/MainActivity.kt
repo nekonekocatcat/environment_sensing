@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -73,84 +74,35 @@ class MainActivity : ComponentActivity() {
         setContent {
             Environment_sensingTheme {
                 val realtimeVM: RealtimeViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
-
-                LaunchedEffect(Unit) {
-                    realtimeVM.setScanning(LogService.isRunning)
-                }
-
+                var simpleMode by rememberSaveable { mutableStateOf(false) }
                 val navController = rememberNavController()
 
-                val appContext = this@MainActivity.applicationContext
+                LaunchedEffect(Unit) { realtimeVM.setScanning(LogService.isRunning) }
 
+                // 🔑 コレクション遷移だけ MainActivity が購読
                 LaunchedEffect(Unit) {
-                    SensorEventBus.sensorData.collect { data ->
-                        val currentTime = System.currentTimeMillis()
-
-                        // ---- レア環境チェック ----
-                        val rareName = RareEnvironmentChecker.check(data)
-                        if (rareName != null) {
-                            val lastTime = lastShownRare[rareName] ?: 0L
-                            if (currentTime - lastTime > cooldownMillis) {
-                                lastShownRare[rareName] = currentTime
-
-                                val isFirstTime = withContext(Dispatchers.IO) {
-                                    val dao = AppDatabase.getInstance(appContext).environmentCollectionDao()
-                                    val first = dao.countByName(rareName) == 0
-                                    dao.insertIfNotExists(
-                                        EnvironmentCollection(
-                                            environmentName = rareName,
-                                            name = rareName,
-                                            timestamp = currentTime
-                                        )
-                                    )
-                                    first
-                                }
-                                if (isFirstTime) {
-                                    withContext(Dispatchers.Main.immediate) {
-                                        navController.navigate("collection") {
-                                            launchSingleTop = true
-                                            restoreState = true
-                                        }
-                                    }
-                                }
+                    SensorEventBus.rareFirstEvent.collect {
+                        if (!simpleMode) {
+                            navController.navigate("collection") {
+                                launchSingleTop = true
+                                restoreState = true
                             }
-                            return@collect
                         }
-
-                        // ---- ノーマル環境チェック ----
-                        val normalName = NormalEnvironmentChecker.check(data)
-                        if (normalName != null) {
-                            val lastTime = lastShownNormal[normalName] ?: 0L
-                            if (currentTime - lastTime > cooldownMillis) {
-                                lastShownNormal[normalName] = currentTime
-
-                                val isFirstTime = withContext(Dispatchers.IO) {
-                                    val dao = AppDatabase.getInstance(appContext).environmentCollectionDao()
-                                    val first = dao.countByName(normalName) == 0
-                                    dao.insertIfNotExists(
-                                        EnvironmentCollection(
-                                            environmentName = normalName,
-                                            name = normalName,
-                                            timestamp = currentTime
-                                        )
-                                    )
-                                    first
-                                }
-                                if (isFirstTime) {
-                                    withContext(Dispatchers.Main.immediate) {
-                                        navController.navigate("collection") {
-                                            launchSingleTop = true
-                                            restoreState = true
-                                        }
-                                    }
-                                }
+                    }
+                }
+                LaunchedEffect(Unit) {
+                    SensorEventBus.normalFirstEvent.collect {
+                        if (!simpleMode) {
+                            navController.navigate("collection") {
+                                launchSingleTop = true
+                                restoreState = true
                             }
                         }
                     }
                 }
 
                 Scaffold(
-                    bottomBar = { BottomNavigationBar(navController = navController) }
+                    bottomBar = { if (!simpleMode) BottomNavigationBar(navController) }
                 ) { innerPadding ->
                     NavHost(
                         navController = navController,
@@ -158,21 +110,45 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.padding(innerPadding)
                     ) {
                         composable("realtime") {
-                            RealtimeScreen(
-                                viewModel = realtimeVM,
-                                onToggleScan = { enable ->
-                                    if (enable) {
-                                        if (hasRequiredPermissions()) {
-                                            startLogService()
+                            if (simpleMode) {
+                                //CooldownGate.configureForExperiment(true)
+                                SimpleRealtimeScreen(
+                                    viewModel = realtimeVM,
+                                    onBackToFull = {
+                                        simpleMode = false
+                                        //CooldownGate.configureForExperiment(false)
+                                    },
+                                    isScanning = realtimeVM.isScanning.collectAsState().value,
+                                    onToggleScan = { enable ->
+                                        if (enable) {
+                                            //CooldownGate.configureForExperiment(true)
+                                            if (hasRequiredPermissions()) startLogService()
+                                            else permissionLauncher.launch(REQUIRED_PERMISSIONS)
                                         } else {
-                                            permissionLauncher.launch(REQUIRED_PERMISSIONS)
+                                            stopService(Intent(this@MainActivity, LogService::class.java))
                                         }
-                                    } else {
-                                        stopService(Intent(this@MainActivity, LogService::class.java))
+                                        realtimeVM.setScanning(enable)
                                     }
-                                    realtimeVM.setScanning(enable)
-                                }
-                            )
+                                )
+                            } else {
+                                //CooldownGate.configureForExperiment(false)
+                                RealtimeScreen(
+                                    viewModel = realtimeVM, // ← RealtimeVM が rareEvent/normalEvent を購読しダイアログ表示
+                                    onToggleScan = { enable ->
+                                        if (enable) {
+                                            if (hasRequiredPermissions()) startLogService()
+                                            else permissionLauncher.launch(REQUIRED_PERMISSIONS)
+                                        } else {
+                                            stopService(Intent(this@MainActivity, LogService::class.java))
+                                        }
+                                        realtimeVM.setScanning(enable)
+                                    },
+                                    onSwitchToSimple = {
+                                        simpleMode = true
+                                        //CooldownGate.configureForExperiment(true)
+                                    }
+                                )
+                            }
                         }
                         composable("history") { HistoryScreen() }
                         composable("collection") { CollectionScreen() }
