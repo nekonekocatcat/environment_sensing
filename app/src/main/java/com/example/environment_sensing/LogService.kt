@@ -85,9 +85,10 @@ class LogService : Service() {
                             )
                         )
                     }
-                    Log.d("FirstEvent", "Emit normalFirstEvent isFirst=$isFirst name=$name")
-                    SensorEventBus.normalEvent.emit(name)
-                    if (isFirst) SensorEventBus.normalFirstEvent.emit(name)
+                    withContext(Dispatchers.Main) {
+                        SensorEventBus.normalEvent.emit(name)
+                        if (isFirst) SensorEventBus.normalFirstEvent.emit(name)
+                    }
                 }
             }
         )
