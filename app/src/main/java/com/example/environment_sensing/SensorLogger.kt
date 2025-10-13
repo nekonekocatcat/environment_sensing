@@ -66,14 +66,6 @@ class SensorLogger(
                         timestamp = timestamp
                     )
                 )
-                database.environmentCollectionDao().insertIfNotExists(
-                    EnvironmentCollection(
-                        environmentName = rareName,
-                        name = rareName,
-                        timestamp = timestamp,
-                        isNew = true
-                    )
-                )
                 withContext(Dispatchers.Main) {
                     onRareDetected?.invoke(rareName)
                 }
@@ -87,14 +79,6 @@ class SensorLogger(
                     NormalEnvironmentLog(
                         environmentName = normalName,
                         timestamp = timestamp
-                    )
-                )
-                database.environmentCollectionDao().insertIfNotExists(
-                    EnvironmentCollection(
-                        environmentName = normalName,
-                        name = normalName,
-                        timestamp = timestamp,
-                        isNew = true
                     )
                 )
                 withContext(Dispatchers.Main) {

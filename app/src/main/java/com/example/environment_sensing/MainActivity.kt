@@ -68,6 +68,9 @@ class MainActivity : ComponentActivity() {
             startActivity(intent)
         }
 
+        //ここ絶対本番環境で削除して絶対に❣️
+        applicationContext.deleteDatabase("sensor_database")
+
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
@@ -77,25 +80,25 @@ class MainActivity : ComponentActivity() {
                 var simpleMode by rememberSaveable { mutableStateOf(false) }
                 val navController = rememberNavController()
 
-                LaunchedEffect(Unit) { realtimeVM.setScanning(LogService.isRunning) }
 
-                // 🔑 コレクション遷移だけ MainActivity が購読
-                LaunchedEffect(Unit) {
-                    SensorEventBus.rareFirstEvent.collect {
-                        if (!simpleMode) {
+                LaunchedEffect(navController) {
+                    launch {
+                        SensorEventBus.rareFirstEvent.collect { name ->
+                            android.util.Log.d("AutoNav", "RARE first-time: $name -> navigate")
                             navController.navigate("collection") {
                                 launchSingleTop = true
                                 restoreState = true
+                                popUpTo("realtime") { saveState = true }
                             }
                         }
                     }
-                }
-                LaunchedEffect(Unit) {
-                    SensorEventBus.normalFirstEvent.collect {
-                        if (!simpleMode) {
+                    launch {
+                        SensorEventBus.normalFirstEvent.collect { name ->
+                            android.util.Log.d("AutoNav", "NORMAL first-time: $name -> navigate")
                             navController.navigate("collection") {
                                 launchSingleTop = true
                                 restoreState = true
+                                popUpTo("realtime") { saveState = true }
                             }
                         }
                     }
@@ -110,45 +113,23 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.padding(innerPadding)
                     ) {
                         composable("realtime") {
-                            if (simpleMode) {
-                                //CooldownGate.configureForExperiment(true)
-                                SimpleRealtimeScreen(
-                                    viewModel = realtimeVM,
-                                    onBackToFull = {
-                                        simpleMode = false
-                                        //CooldownGate.configureForExperiment(false)
-                                    },
-                                    isScanning = realtimeVM.isScanning.collectAsState().value,
-                                    onToggleScan = { enable ->
-                                        if (enable) {
-                                            //CooldownGate.configureForExperiment(true)
-                                            if (hasRequiredPermissions()) startLogService()
-                                            else permissionLauncher.launch(REQUIRED_PERMISSIONS)
+                            RealtimeScreen(
+                                viewModel = realtimeVM,
+                                onToggleScan = { enable ->
+                                    if (enable) {
+                                        if (hasRequiredPermissions()) {
+                                            startLogService()
                                         } else {
-                                            stopService(Intent(this@MainActivity, LogService::class.java))
+                                            permissionLauncher.launch(REQUIRED_PERMISSIONS)
                                         }
-                                        realtimeVM.setScanning(enable)
+                                    } else {
+                                        stopService(Intent(this@MainActivity, LogService::class.java))
                                     }
-                                )
-                            } else {
-                                //CooldownGate.configureForExperiment(false)
-                                RealtimeScreen(
-                                    viewModel = realtimeVM, // ← RealtimeVM が rareEvent/normalEvent を購読しダイアログ表示
-                                    onToggleScan = { enable ->
-                                        if (enable) {
-                                            if (hasRequiredPermissions()) startLogService()
-                                            else permissionLauncher.launch(REQUIRED_PERMISSIONS)
-                                        } else {
-                                            stopService(Intent(this@MainActivity, LogService::class.java))
-                                        }
-                                        realtimeVM.setScanning(enable)
-                                    },
-                                    onSwitchToSimple = {
-                                        simpleMode = true
-                                        //CooldownGate.configureForExperiment(true)
-                                    }
-                                )
-                            }
+                                    realtimeVM.setScanning(enable)
+                                },
+                                onSwitchToSimple = {
+                                }
+                            )
                         }
                         composable("history") { HistoryScreen() }
                         composable("collection") { CollectionScreen() }
