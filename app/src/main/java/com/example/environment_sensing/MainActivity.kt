@@ -81,24 +81,30 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
 
 
-                LaunchedEffect(navController) {
+                LaunchedEffect(navController, simpleMode) {
+                    // レア環境
                     launch {
                         SensorEventBus.rareFirstEvent.collect { name ->
-                            android.util.Log.d("AutoNav", "RARE first-time: $name -> navigate")
-                            navController.navigate("collection") {
-                                launchSingleTop = true
-                                restoreState = true
-                                popUpTo("realtime") { saveState = true }
+                            if (!simpleMode) {
+                                android.util.Log.d("AutoNav", "RARE first-time: $name -> navigate")
+                                navController.navigate("collection") {
+                                    launchSingleTop = true
+                                    restoreState = true
+                                    popUpTo("realtime") { saveState = true }
+                                }
                             }
                         }
                     }
+                    // ノーマル環境
                     launch {
                         SensorEventBus.normalFirstEvent.collect { name ->
-                            android.util.Log.d("AutoNav", "NORMAL first-time: $name -> navigate")
-                            navController.navigate("collection") {
-                                launchSingleTop = true
-                                restoreState = true
-                                popUpTo("realtime") { saveState = true }
+                            if (!simpleMode) {
+                                android.util.Log.d("AutoNav", "NORMAL first-time: $name -> navigate")
+                                navController.navigate("collection") {
+                                    launchSingleTop = true
+                                    restoreState = true
+                                    popUpTo("realtime") { saveState = true }
+                                }
                             }
                         }
                     }
