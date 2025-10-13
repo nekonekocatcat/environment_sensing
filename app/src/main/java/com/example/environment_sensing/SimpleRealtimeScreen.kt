@@ -22,30 +22,6 @@ fun SimpleRealtimeScreen(
 ) {
     val data by viewModel.sensorData.collectAsState()
 
-    val rareMessage by viewModel.rareMessage.collectAsState()
-    val normalMessage by viewModel.normalMessage.collectAsState()
-    val showRareDialog by viewModel.showRareDialog.collectAsState()
-    val showNormalDialog by viewModel.showNormalDialog.collectAsState()
-
-
-    // 🎉 レア環境ゲット
-    if (rareMessage.isNotEmpty() && showRareDialog) {
-        AlertDialog(
-            onDismissRequest = { viewModel.dismissRare() },
-            confirmButton = { Button(onClick = { viewModel.dismissRare() }) { Text("OK") } },
-            title = { Text("🎉 レア環境ゲット！", color = MaterialTheme.colorScheme.primary) },
-            text  = { Text(rareMessage) }
-        )
-    }
-    // ✨ ノーマル環境ゲット
-    if (normalMessage.isNotEmpty() && showNormalDialog) {
-        AlertDialog(
-            onDismissRequest = { viewModel.dismissNormal() },
-            confirmButton = { Button(onClick = { viewModel.dismissNormal() }) { Text("OK") } },
-            title = { Text("✨ ノーマル環境ゲット！", color = MaterialTheme.colorScheme.primary) },
-            text  = { Text(normalMessage) }
-        )
-    }
 
     Scaffold(
         topBar = { SmallTopAppBar(title = { Text("🧪 実験モード") }) },
