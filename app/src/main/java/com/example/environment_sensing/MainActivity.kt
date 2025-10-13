@@ -104,6 +104,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+
                 Scaffold(
                     bottomBar = { if (!simpleMode) BottomNavigationBar(navController) }
                 ) { innerPadding ->
@@ -113,23 +114,38 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.padding(innerPadding)
                     ) {
                         composable("realtime") {
-                            RealtimeScreen(
-                                viewModel = realtimeVM,
-                                onToggleScan = { enable ->
-                                    if (enable) {
-                                        if (hasRequiredPermissions()) {
-                                            startLogService()
+                            if (simpleMode) {
+                                //  実験モード（数値のみ表示）
+                                SimpleRealtimeScreen(
+                                    viewModel = realtimeVM,
+                                    isScanning = realtimeVM.isScanning.collectAsState().value,
+                                    onToggleScan = { enable ->
+                                        if (enable) {
+                                            if (hasRequiredPermissions()) startLogService()
+                                            else permissionLauncher.launch(REQUIRED_PERMISSIONS)
                                         } else {
-                                            permissionLauncher.launch(REQUIRED_PERMISSIONS)
+                                            stopService(Intent(this@MainActivity, LogService::class.java))
                                         }
-                                    } else {
-                                        stopService(Intent(this@MainActivity, LogService::class.java))
-                                    }
-                                    realtimeVM.setScanning(enable)
-                                },
-                                onSwitchToSimple = {
-                                }
-                            )
+                                        realtimeVM.setScanning(enable)
+                                    },
+                                    onBackToFull = { simpleMode = false }
+                                )
+                            } else {
+                                //  通常モード（今までのリアルタイム表示）
+                                RealtimeScreen(
+                                    viewModel = realtimeVM,
+                                    onToggleScan = { enable ->
+                                        if (enable) {
+                                            if (hasRequiredPermissions()) startLogService()
+                                            else permissionLauncher.launch(REQUIRED_PERMISSIONS)
+                                        } else {
+                                            stopService(Intent(this@MainActivity, LogService::class.java))
+                                        }
+                                        realtimeVM.setScanning(enable)
+                                    },
+                                    onSwitchToSimple = { simpleMode = true }
+                                )
+                            }
                         }
                         composable("history") { HistoryScreen() }
                         composable("collection") { CollectionScreen() }
