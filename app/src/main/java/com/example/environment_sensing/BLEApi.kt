@@ -1,46 +1,74 @@
 package com.example.environment_sensing
+
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
-import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Build
-import java.util.UUID
+import android.util.Log
+import androidx.core.content.ContextCompat
 import pub.devrel.easypermissions.EasyPermissions
 
 class BLEApi {
-    //パーミッション確認用のコード
     private val PERMISSION_REQUEST_CODE = 1
     private val bluetoothAdapter: BluetoothAdapter? = BluetoothAdapter.getDefaultAdapter()
     private val bluetoothLeScanner: BluetoothLeScanner? = bluetoothAdapter?.bluetoothLeScanner
     var leScanCallback: ScanCallback? = null
-    val permissions = if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S){
-        arrayOf(
-            Manifest.permission.ACCESS_COARSE_LOCATION,
-            Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.BLUETOOTH_CONNECT,
-            Manifest.permission.BLUETOOTH_SCAN,
-        )
-    }else{
-        arrayOf(
-            Manifest.permission.ACCESS_COARSE_LOCATION,
-            Manifest.permission.ACCESS_FINE_LOCATION,
-        )
-    }
-    fun getPermission(context: Context, activity: Activity){
-        //パーミッション確認
-        if (!EasyPermissions.hasPermissions(context, *permissions)) {
-            // パーミッションが許可されていない時の処理
-            EasyPermissions.requestPermissions(activity, "パーミッションに関する説明", PERMISSION_REQUEST_CODE, *permissions)
+
+    // ✅ OSごとに要求する権限を分ける
+    private val permissions: Array<String> =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            arrayOf(
+                Manifest.permission.BLUETOOTH_SCAN,
+                Manifest.permission.BLUETOOTH_CONNECT,
+            )
+        } else {
+            arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+            )
+        }
+
+    // 欠けている権限をリストアップ
+    private fun missingPermissions(context: Context): List<String> =
+        permissions.filter {
+            ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
+        }
+
+    fun getPermission(context: Context, activity: Activity) {
+        val missing = missingPermissions(context)
+        if (missing.isNotEmpty()) {
+            Log.w("BLEApi", "missing perms: $missing")
+            EasyPermissions.requestPermissions(
+                activity,
+                "BLEスキャンのために権限が必要です",
+                PERMISSION_REQUEST_CODE,
+                *missing.toTypedArray()
+            )
         }
     }
+
     @SuppressLint("MissingPermission")
     fun startBLEBeaconScan(context: Context, resultBeacon: (ScanResult?) -> Unit) {
+        // 端末でBT無効なら即終了
+        val adapter = bluetoothAdapter
+        if (adapter == null || !adapter.isEnabled) {
+            Log.w("BLEApi", "Bluetooth is disabled or adapter is null")
+            return
+        }
+
+        val missing = missingPermissions(context)
+        if (missing.isNotEmpty()) {
+            Log.w("BLEApi", "cannot start scan, missing=$missing")
+            return
+        }
+
         leScanCallback = object : ScanCallback() {
             override fun onScanResult(callbackType: Int, result: ScanResult) {
                 resultBeacon(result)
@@ -52,14 +80,13 @@ class BLEApi {
             .setReportDelay(0)
             .build()
 
-        if (EasyPermissions.hasPermissions(context, *permissions)) {
-            bluetoothLeScanner?.startScan(null, scanSettings, leScanCallback)
-        } else {
-            android.util.Log.e("BLE", "Permissions not granted, cannot start scan")
-        }
+        bluetoothLeScanner?.startScan(null, scanSettings, leScanCallback)
+        Log.d("BLEApi", "startScan() requested")
     }
+
     @SuppressLint("MissingPermission")
-    fun stopBLEBeaconScan(){
+    fun stopBLEBeaconScan() {
         bluetoothLeScanner?.stopScan(leScanCallback)
+        leScanCallback = null
     }
 }
