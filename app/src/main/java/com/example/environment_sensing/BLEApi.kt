@@ -21,12 +21,13 @@ class BLEApi {
     private val bluetoothLeScanner: BluetoothLeScanner? = bluetoothAdapter?.bluetoothLeScanner
     var leScanCallback: ScanCallback? = null
 
-    // ✅ OSごとに要求する権限を分ける
     private val permissions: Array<String> =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             arrayOf(
                 Manifest.permission.BLUETOOTH_SCAN,
                 Manifest.permission.BLUETOOTH_CONNECT,
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION,
             )
         } else {
             arrayOf(
@@ -36,7 +37,7 @@ class BLEApi {
         }
 
     // 欠けている権限をリストアップ
-    private fun missingPermissions(context: Context): List<String> =
+    fun missingPermissions(context: Context): List<String> =
         permissions.filter {
             ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
         }

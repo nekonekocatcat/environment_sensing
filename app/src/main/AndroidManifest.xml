@@ -13,8 +13,6 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
-    <!-- 使っていなければ削除：広告を出さないなら不要 -->
-    <!-- <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE"/> -->
 
     <!-- BLE対応端末でなくてもインストール可にするなら required=false -->
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="false"/>
@@ -26,12 +24,6 @@
     <!-- 通知（Android 13+ で必須） -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
-    <!-- 不要なら削除（現状使ってない/重複してたもの）
-         - ACCESS_COARSE_LOCATION
-         - ACCESS_BACKGROUND_LOCATION
-         - FOREGROUND_SERVICE の重複定義
-         - WRITE_EXTERNAL_STORAGE (API33以降は基本不要)
-    -->
 
     <application
         android:allowBackup="true"
