@@ -34,31 +34,66 @@ import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
 
-    private var lastShownRare = mutableMapOf<String, Long>()
-    private var lastShownNormal = mutableMapOf<String, Long>()
-    private val cooldownMillis = 10_000L
+    private fun runtimePermissions(): Array<String> {
+        val perms = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            perms += android.Manifest.permission.BLUETOOTH_SCAN
+            perms += android.Manifest.permission.BLUETOOTH_CONNECT
+            perms += android.Manifest.permission.ACCESS_FINE_LOCATION
+            perms += android.Manifest.permission.ACCESS_COARSE_LOCATION
+        } else {
+            perms += android.Manifest.permission.ACCESS_FINE_LOCATION
+            perms += android.Manifest.permission.ACCESS_COARSE_LOCATION
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            perms += android.Manifest.permission.POST_NOTIFICATIONS
+        }
+        return perms.toTypedArray()
+    }
 
-    private val REQUIRED_PERMISSIONS = arrayOf(
-        android.Manifest.permission.BLUETOOTH_SCAN,
-        android.Manifest.permission.BLUETOOTH_CONNECT,
-        android.Manifest.permission.BLUETOOTH_ADVERTISE,
-        android.Manifest.permission.FOREGROUND_SERVICE,
-        android.Manifest.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE,
-        android.Manifest.permission.POST_NOTIFICATIONS,
-        android.Manifest.permission.ACCESS_FINE_LOCATION
-    )
+    private fun missingPermissions(): List<String> =
+        runtimePermissions().filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }
+
 
     private val permissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
-            val allGranted = permissions.all { it.value }
-            if (allGranted) {
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+            val bleMissing = missing(blePermissions())
+            if (bleMissing.isEmpty()) {
                 startLogService()
             } else {
                 Toast.makeText(this, "必要な権限が許可されませんでした", Toast.LENGTH_SHORT).show()
+                Log.w("PERM", "still missing BLE perms: $bleMissing")
             }
         }
 
-    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    private fun blePermissions(): Array<String> {
+        val p = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            p += android.Manifest.permission.BLUETOOTH_SCAN
+            p += android.Manifest.permission.BLUETOOTH_CONNECT
+            p += android.Manifest.permission.ACCESS_FINE_LOCATION
+            p += android.Manifest.permission.ACCESS_COARSE_LOCATION
+        } else {
+            p += android.Manifest.permission.ACCESS_FINE_LOCATION
+            p += android.Manifest.permission.ACCESS_COARSE_LOCATION
+        }
+        return p.toTypedArray()
+    }
+
+    private fun isGranted(perm: String) =
+        ContextCompat.checkSelfPermission(this, perm) == PackageManager.PERMISSION_GRANTED
+
+    private fun missing(perms: Array<String>) =
+        perms.filterNot { isGranted(it) }
+
+    private fun needsNotifPermissionRequest(): Boolean =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                !isGranted(android.Manifest.permission.POST_NOTIFICATIONS)
+
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         // バッテリー最適化解除
         val pm = getSystemService(POWER_SERVICE) as PowerManager
@@ -67,6 +102,9 @@ class MainActivity : ComponentActivity() {
             intent.data = Uri.parse("package:$packageName")
             startActivity(intent)
         }
+
+        Log.d("PERM", "sdk=${Build.VERSION.SDK_INT}, missing=${missingPermissions()}")
+
 
         //ここ絶対本番環境で削除して絶対に❣️
         applicationContext.deleteDatabase("sensor_database")
@@ -127,8 +165,18 @@ class MainActivity : ComponentActivity() {
                                     isScanning = realtimeVM.isScanning.collectAsState().value,
                                     onToggleScan = { enable ->
                                         if (enable) {
-                                            if (hasRequiredPermissions()) startLogService()
-                                            else permissionLauncher.launch(REQUIRED_PERMISSIONS)
+                                            val bleMissing = missing(blePermissions())
+                                            val requestList = mutableListOf<String>().apply {
+                                                addAll(bleMissing)
+                                                if (needsNotifPermissionRequest()) {
+                                                    add(android.Manifest.permission.POST_NOTIFICATIONS)
+                                                }
+                                            }
+                                            if (requestList.isNotEmpty()) {
+                                                permissionLauncher.launch(requestList.toTypedArray())
+                                            } else {
+                                                startLogService()
+                                            }
                                         } else {
                                             stopService(Intent(this@MainActivity, LogService::class.java))
                                         }
@@ -142,8 +190,18 @@ class MainActivity : ComponentActivity() {
                                     viewModel = realtimeVM,
                                     onToggleScan = { enable ->
                                         if (enable) {
-                                            if (hasRequiredPermissions()) startLogService()
-                                            else permissionLauncher.launch(REQUIRED_PERMISSIONS)
+                                            val bleMissing = missing(blePermissions())
+                                            val requestList = mutableListOf<String>().apply {
+                                                addAll(bleMissing)
+                                                if (needsNotifPermissionRequest()) {
+                                                    add(android.Manifest.permission.POST_NOTIFICATIONS)
+                                                }
+                                            }
+                                            if (requestList.isNotEmpty()) {
+                                                permissionLauncher.launch(requestList.toTypedArray())
+                                            } else {
+                                                startLogService()
+                                            }
                                         } else {
                                             stopService(Intent(this@MainActivity, LogService::class.java))
                                         }
@@ -158,12 +216,6 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
-        }
-    }
-
-    private fun hasRequiredPermissions(): Boolean {
-        return REQUIRED_PERMISSIONS.all {
-            ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
         }
     }
 
