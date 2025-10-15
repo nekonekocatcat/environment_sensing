@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.environment_sensing.AppMode
 import com.example.environment_sensing.ModeToggleRow
+import com.example.environment_sensing.ui.components.AutoDismissAlertDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,20 +42,23 @@ fun RealtimeScreen(
 
     // 🎉 レア環境ゲット
     if (rareMessage.isNotEmpty() && showRareDialog) {
-        AlertDialog(
-            onDismissRequest = { viewModel.dismissRare() },
-            confirmButton = { Button(onClick = { viewModel.dismissRare() }) { Text("OK", fontSize = 18.sp) } },
-            title = { Text("🎉 レア環境ゲット！", fontSize = 22.sp, color = MaterialTheme.colorScheme.primary) },
-            text = { Text(rareMessage, fontSize = 18.sp) }
+        AutoDismissAlertDialog(
+            title = "🎉 レア環境ゲット！",
+            message = rareMessage,
+            timeoutSeconds = 5,
+            onConfirm = { viewModel.dismissRare() },
+            onDismissRequest = { viewModel.dismissRare() }
         )
     }
-    // ✨ ノーマル環境ゲット
+
+// ✨ ノーマル環境ゲット
     if (normalMessage.isNotEmpty() && showNormalDialog) {
-        AlertDialog(
-            onDismissRequest = { viewModel.dismissNormal() },
-            confirmButton = { Button(onClick = { viewModel.dismissNormal() }) { Text("OK", fontSize = 18.sp) } },
-            title = { Text("✨ ノーマル環境ゲット！", fontSize = 22.sp, color = MaterialTheme.colorScheme.primary) },
-            text = { Text(normalMessage, fontSize = 18.sp) }
+        AutoDismissAlertDialog(
+            title = "✨ ノーマル環境ゲット！",
+            message = normalMessage,
+            timeoutSeconds = 5,
+            onConfirm = { viewModel.dismissNormal() },
+            onDismissRequest = { viewModel.dismissNormal() }
         )
     }
 
