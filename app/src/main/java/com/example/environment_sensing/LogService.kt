@@ -8,6 +8,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
+import android.os.SystemClock
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.core.app.ActivityCompat
@@ -23,18 +25,29 @@ class LogService : Service() {
     companion object {
         const val CHANNEL_ID = "env_log_channel"
         @Volatile var isRunning: Boolean = false
+        @Volatile var lastBeaconElapsed: Long = 0L
     }
 
     private lateinit var notificationManager: NotificationManagerCompat
     private lateinit var bleApi: BLEApi
     private lateinit var sensorLogger: SensorLogger
     private val uiScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
-
+    private var wakeLock: PowerManager.WakeLock? = null
+    private var scanJob: Job? = null
+    private var watchdogJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
         bleApi = BLEApi()
         isRunning = true
+
+        val pm = getSystemService(POWER_SERVICE) as PowerManager
+        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "envsensing:forever").apply {
+            setReferenceCounted(false)
+            acquire()
+        }
+
+        lastBeaconElapsed = SystemClock.elapsedRealtime()
 
         val appCtx = applicationContext
         val ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -43,10 +56,6 @@ class LogService : Service() {
             appCtx,
             CoroutineScope(Dispatchers.IO + SupervisorJob()),
             onRareDetected = { name ->
-//                if (!CooldownGate.allow(name, isRare = true)) {
-//                    Log.d("Cooldown", "skip rare: $name")
-//                    return@SensorLogger
-//                }
                 showNotification("レア環境ゲット！", name)
                 ioScope.launch {
                     val dao = AppDatabase.getInstance(appCtx).environmentCollectionDao()
@@ -68,10 +77,6 @@ class LogService : Service() {
                 }
             },
             onNormalDetected = { name ->
-//                if (!CooldownGate.allow(name, isRare = false)) {
-//                    Log.d("Cooldown", "skip normal: $name")
-//                    return@SensorLogger
-//                }
                 showNotification("ノーマル環境ゲット！", name)
                 ioScope.launch {
                     val dao = AppDatabase.getInstance(appCtx).environmentCollectionDao()
@@ -97,7 +102,7 @@ class LogService : Service() {
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         notificationManager = NotificationManagerCompat.from(this)
-        val channel = NotificationChannelCompat.Builder(CHANNEL_ID, NotificationManagerCompat.IMPORTANCE_DEFAULT)
+        val channel = NotificationChannelCompat.Builder(CHANNEL_ID, NotificationManagerCompat.IMPORTANCE_LOW)
             .setName("環境ログ出力")
             .build()
         notificationManager.createNotificationChannel(channel)
@@ -109,13 +114,43 @@ class LogService : Service() {
         val notification = NotificationCompat.Builder(this, channel.id)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle("環境データ取得中")
-            .setContentText("バックグラウンドで環境を監視しています")
+            .setContentText("停止するまでスキャンし続けます")
             .setContentIntent(openIntent)
             .setOngoing(true)
             .build()
         startForeground(1212, notification)
 
         startBLEScan()
+
+        // 5分ごとにスキャンを再初期化（OS/スタックのドロップ対策）
+        scanJob?.cancel()
+        scanJob = uiScope.launch {
+            while (isRunning) {
+                delay(5 * 60 * 1000L)
+                try {
+                    bleApi.stopBLEBeaconScan()
+                    delay(200)
+                    startBLEScan()
+                } catch (_: Throwable) {}
+            }
+        }
+
+        // 30秒間ビ―コンが来なかったら再起動（ウォッチドッグ）
+        watchdogJob?.cancel()
+        watchdogJob = uiScope.launch {
+            while (isRunning) {
+                delay(30_000L)
+                val idle = SystemClock.elapsedRealtime() - lastBeaconElapsed
+                if (idle > 30_000L) {
+                    try {
+                        bleApi.stopBLEBeaconScan()
+                        delay(200)
+                        startBLEScan()
+                    } catch (_: Throwable) {}
+                }
+            }
+        }
+
         return START_STICKY
     }
 
@@ -125,6 +160,9 @@ class LogService : Service() {
         bleApi.startBLEBeaconScan(this) { beacon: ScanResult? ->
             val mac = beacon?.device?.address
             val advData = beacon?.scanRecord?.bytes
+
+            lastBeaconElapsed = SystemClock.elapsedRealtime()
+
             if (mac == "C1:8B:A1:8E:26:FB") {
                 advData?.let {
                     val data = parseAdvertisementData(it)
@@ -142,22 +180,29 @@ class LogService : Service() {
         }
     }
 
-
     override fun onDestroy() {
         super.onDestroy()
         isRunning = false
+        try { bleApi.stopBLEBeaconScan() } catch (_: Throwable) {}
+        scanJob?.cancel()
+        watchdogJob?.cancel()
         uiScope.cancel()
+        try { wakeLock?.release() } catch (_: Throwable) {}
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
     }
 
     private fun parseAdvertisementData(advData: ByteArray): SensorData? {
         return try {
             val temperature = advData.getLittleEndianUInt16(9) / 100.0
-            val humidity = advData.getLittleEndianUInt16(11) / 100.0
-            val light = advData.getLittleEndianUInt16(13)
-            val pressure = advData.getLittleEndianUInt24(15) / 1000.0
-            val noise = advData.getLittleEndianUInt16(19) / 100.0
-            val tvoc = advData.getLittleEndianUInt16(21)
-            val co2 = advData.getLittleEndianUInt16(23)
+            val humidity    = advData.getLittleEndianUInt16(11) / 100.0
+            val light       = advData.getLittleEndianUInt16(13)
+            val pressure    = advData.getLittleEndianUInt24(15) / 1000.0
+            val noise       = advData.getLittleEndianUInt16(19) / 100.0
+            val tvoc        = advData.getLittleEndianUInt16(21)
+            val co2         = advData.getLittleEndianUInt16(23)
             SensorData(temperature, humidity, light, pressure, noise, tvoc, co2)
         } catch (e: Exception) {
             Log.e("parseError", "パース失敗: ${e.message}")
@@ -171,7 +216,7 @@ class LogService : Service() {
     private fun ByteArray.getLittleEndianUInt24(index: Int) =
         (this[index].toInt() and 0xFF) or
                 ((this[index + 1].toInt() and 0xFF) shl 8) or
-                ((this[index + 2].toInt() and 0xFF) shl 16)
+                ((this[index + 2].toInt().and(0xFF)) shl 16)
 
     private fun showNotification(title: String, message: String) {
         val openIntent = PendingIntent.getActivity(
@@ -184,10 +229,8 @@ class LogService : Service() {
             .setContentIntent(openIntent)
             .setAutoCancel(true)
             .build()
-        if (ActivityCompat.checkSelfPermission(
-                this,
-                Manifest.permission.POST_NOTIFICATIONS
-            ) != PackageManager.PERMISSION_GRANTED
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+            != PackageManager.PERMISSION_GRANTED
         ) {
             return
         }
