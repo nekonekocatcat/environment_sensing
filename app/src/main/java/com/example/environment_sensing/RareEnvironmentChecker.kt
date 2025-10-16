@@ -9,19 +9,19 @@ data class RareEnvironment(
 object RareEnvironmentChecker {
     val environments = listOf(
         // --- 悪環境系 ---
-        RareEnvironment("低気圧×高温レア環境", {
+        RareEnvironment("熱帯低気圧レア環境", {
             it.pressure <= 990 && it.temperature >= 30
         }, requireDurationMillis = 120_000), // 台風・熱帯夜
 
-        RareEnvironment("暗い×うるさいレア環境", {
+        RareEnvironment("クラブわいわいレア環境", {
             it.light <= 30 && it.noise >= 85
         }, requireDurationMillis = 10_000), // クラブ・ライブハウス
 
-        RareEnvironment("うるさい×汚いレア環境", {
+        RareEnvironment("工事現場みたいなレア環境", {
             it.noise >= 100 && it.tvoc >= 250
         }, requireDurationMillis = 90_000), // 工事現場
 
-        RareEnvironment("高温×息苦しさレア環境", {
+        RareEnvironment("真夏の密室レア環境", {
             it.temperature >= 32 && it.co2 >= 1200
         }, requireDurationMillis = 90_000), // 真夏の密室
 
@@ -56,9 +56,9 @@ object RareEnvironmentChecker {
         }, requireDurationMillis = 120_000), // 暗くて静か、ちょっと二酸化炭素多め
 
         // 実験用レア環境
-        RareEnvironment("めちゃ明るいレア環境（実験用）", {
-            it.light >= 800
-        }, requireDurationMillis = 5_000)
+//        RareEnvironment("めちゃ明るいレア環境（実験用）", {
+//            it.light >= 800
+//        }, requireDurationMillis = 5_000)
 
     )
 

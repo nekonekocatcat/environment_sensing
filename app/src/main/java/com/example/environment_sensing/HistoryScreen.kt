@@ -304,10 +304,10 @@ private fun TimelineRow(item: UiLog, timeLabel: String, drawConnector: Boolean) 
 // 履歴用の色マップ（Collection の envColor と同等）
 @Composable
 private fun historyEnvColor(name: String): Color = when (name) {
-    "高温×息苦しさレア環境" -> Color(0xFFD32F2F)
-    "低気圧×高温レア環境"   -> Color(0xFFB71C1C)
-    "暗い×うるさいレア環境" -> Color(0xFF6A1B9A)
-    "うるさい×汚いレア環境" -> Color(0xFF8D6E63)
+    "真夏の密室レア環境" -> Color(0xFFD32F2F)
+    "熱帯低気圧レア環境"   -> Color(0xFFB71C1C)
+    "クラブわいわいレア環境" -> Color(0xFF6A1B9A)
+    "工事現場みたいなレア環境" -> Color(0xFF8D6E63)
     "南国リゾートレア環境"   -> Color(0xFFFFA000)
     "星空キャンプレア環境"   -> Color(0xFF1565C0)
     "勉強はかどる集中レア環境" -> Color(0xFF2E7D32)

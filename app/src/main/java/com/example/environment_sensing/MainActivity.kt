@@ -107,7 +107,7 @@ class MainActivity : ComponentActivity() {
 
 
         //ここ絶対本番環境で削除して絶対に❣️
-        applicationContext.deleteDatabase("sensor_database")
+        //applicationContext.deleteDatabase("sensor_database")
 
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
