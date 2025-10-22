@@ -13,4 +13,15 @@ interface RareEnvironmentLogDao {
 
     @Query("SELECT * FROM RareEnvironmentLog ORDER BY timestamp DESC")
     fun getAllLogs(): Flow<List<RareEnvironmentLog>>
+
+
+    @Query("SELECT * FROM RareEnvironmentLog ORDER BY timestamp DESC")
+    fun observeAll(): Flow<List<RareEnvironmentLog>>
+
+    @Query("""
+        SELECT * FROM RareEnvironmentLog 
+        WHERE latitude IS NOT NULL AND longitude IS NOT NULL 
+        ORDER BY timestamp DESC
+    """)
+    fun observeAllWithLocation(): Flow<List<RareEnvironmentLog>>
 }

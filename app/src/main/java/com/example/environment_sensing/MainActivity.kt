@@ -213,6 +213,7 @@ class MainActivity : ComponentActivity() {
                         }
                         composable("history") { HistoryScreen() }
                         composable("collection") { CollectionScreen() }
+                        composable("map") { MapScreen() }
                     }
                 }
             }

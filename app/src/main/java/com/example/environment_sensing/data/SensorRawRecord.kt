@@ -15,7 +15,10 @@ data class SensorRawRecord(
     val pressure: Double,
     val noise: Double,
     val tvoc: Int,
-    val co2: Int
+    val co2: Int,
+
+    val latitude: Double? = null,
+    val longitude: Double? = null
 )
 
 fun SensorRawRecord.toSensorData(): SensorData {
