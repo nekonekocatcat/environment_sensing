@@ -7,5 +7,7 @@ import androidx.room.PrimaryKey
 data class NormalEnvironmentLog(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val environmentName: String,
-    val timestamp: Long
+    val timestamp: Long,
+    val latitude: Double? = null,
+    val longitude: Double? = null
 )

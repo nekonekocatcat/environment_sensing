@@ -3,6 +3,9 @@ agp = "8.6.0"
 kotlin = "2.0.21"
 ksp = "2.0.21-1.0.27"
 
+playServicesLocation = "21.3.0"
+mapsCompose = "4.3.3"
+coroutines = "1.8.1"
 
 coreKtx = "1.13.1"
 lifecycleRuntimeKtx = "2.8.7"
@@ -39,6 +42,10 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
+
+play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
+maps-compose = { group = "com.google.maps.android", name = "maps-compose", version.ref = "mapsCompose" }
+kotlinx-coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-play-services", version.ref = "coroutines" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

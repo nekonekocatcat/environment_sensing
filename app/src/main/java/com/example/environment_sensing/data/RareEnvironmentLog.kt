@@ -7,5 +7,7 @@ import androidx.room.PrimaryKey
 data class RareEnvironmentLog(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val timestamp: Long,
-    val environmentName: String
+    val environmentName: String,
+    val latitude: Double? = null,
+    val longitude: Double? = null
 )

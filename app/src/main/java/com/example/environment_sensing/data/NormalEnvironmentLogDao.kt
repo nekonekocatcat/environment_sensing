@@ -12,4 +12,14 @@ interface NormalEnvironmentLogDao {
 
     @Query("SELECT * FROM NormalEnvironmentLog ORDER BY timestamp DESC")
     fun getAllLogs(): Flow<List<NormalEnvironmentLog>>
+
+    @Query("SELECT * FROM NormalEnvironmentLog ORDER BY timestamp DESC")
+    fun observeAll(): Flow<List<NormalEnvironmentLog>>
+
+    @Query("""
+        SELECT * FROM NormalEnvironmentLog 
+        WHERE latitude IS NOT NULL AND longitude IS NOT NULL 
+        ORDER BY timestamp DESC
+    """)
+    fun observeAllWithLocation(): Flow<List<NormalEnvironmentLog>>
 }
