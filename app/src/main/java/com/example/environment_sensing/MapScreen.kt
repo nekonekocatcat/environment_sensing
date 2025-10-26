@@ -3,17 +3,18 @@ package com.example.environment_sensing
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.compose.runtime.*
-import androidx.compose.material3.*
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.maps.android.compose.*
 import androidx.compose.ui.platform.LocalContext
 import com.example.environment_sensing.data.AppDatabase
-import com.google.android.gms.maps.model.BitmapDescriptorFactory
-import com.google.android.gms.maps.model.CameraPosition
-import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.*
+
+
+private const val PIN_SIZE_DP = 50f
 
 @Composable
 fun MapScreen(vm: MapViewModel = viewModel()) {
@@ -21,14 +22,13 @@ fun MapScreen(vm: MapViewModel = viewModel()) {
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {
-        // まず足りない座標を後追い埋め
         backfillMissingLocationsOnce(context)
-
-        // （任意）デバッグ：残り件数をログる
         val db = AppDatabase.getInstance(context)
-        val missN = db.normalEnvironmentLogDao().countMissingNormal()
-        val missR = db.rareEnvironmentLogDao().countMissingRare()
-        android.util.Log.d("MapBackfill", "missing normal=$missN, rare=$missR")
+        android.util.Log.d(
+            "MapBackfill",
+            "missing normal=${db.normalEnvironmentLogDao().countMissingNormal()}, " +
+                    "rare=${db.rareEnvironmentLogDao().countMissingRare()}"
+        )
     }
 
     // 位置権限
@@ -45,14 +45,13 @@ fun MapScreen(vm: MapViewModel = viewModel()) {
 
     val locationProvider = remember { LocationProvider(context.applicationContext) }
     var movedToMyLocation by remember { mutableStateOf(false) }
-
     LaunchedEffect(myLocationEnabled) {
         if (myLocationEnabled && !movedToMyLocation) {
-            val gp = locationProvider.currentOrNull()
-            val here = gp?.let { LatLng(it.lat, it.lon) }
-            if (here != null) {
+            locationProvider.currentOrNull()?.let {
                 cameraPositionState.animate(
-                    com.google.android.gms.maps.CameraUpdateFactory.newLatLngZoom(here, 16f)
+                    com.google.android.gms.maps.CameraUpdateFactory.newLatLngZoom(
+                        LatLng(it.lat, it.lon), 16f
+                    )
                 )
                 movedToMyLocation = true
             }
@@ -65,14 +64,33 @@ fun MapScreen(vm: MapViewModel = viewModel()) {
         uiSettings = MapUiSettings(zoomControlsEnabled = true),
         properties = MapProperties(isMyLocationEnabled = myLocationEnabled)
     ) {
-        pins.forEach { pin ->
-            val color = if (pin.isRare) BitmapDescriptorFactory.HUE_ROSE else BitmapDescriptorFactory.HUE_AZURE
-            Marker(
-                state = MarkerState(LatLng(pin.lat, pin.lon)),
-                title = pin.title,
-                snippet = pin.snippet,
-                icon = BitmapDescriptorFactory.defaultMarker(color)
-            )
+        var mapReady by remember { mutableStateOf(false) }
+        var rareIcon by remember { mutableStateOf<BitmapDescriptor?>(null) }
+        var normalIcon by remember { mutableStateOf<BitmapDescriptor?>(null) }
+
+        MapEffect {
+            if (!mapReady) {
+                mapReady = true
+                rareIcon = bitmapDescriptorFromVector(
+                    context, R.drawable.ic_pin, 0xFFE91E63.toInt(), sizeDp = PIN_SIZE_DP
+                )
+                normalIcon = bitmapDescriptorFromVector(
+                    context, R.drawable.ic_pin, 0xFF1E88E5.toInt(), sizeDp = PIN_SIZE_DP
+                )
+            }
+        }
+
+
+        if (mapReady && rareIcon != null && normalIcon != null) {
+            pins.forEach { pin ->
+                Marker(
+                    state = MarkerState(LatLng(pin.lat, pin.lon)),
+                    title = pin.title,
+                    snippet = pin.snippet,
+                    icon = if (pin.isRare) rareIcon else normalIcon,
+                    anchor = Offset(0.5f, 1f)
+                )
+            }
         }
     }
 }
