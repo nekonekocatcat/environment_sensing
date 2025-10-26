@@ -22,6 +22,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.*
@@ -62,6 +63,7 @@ class MainActivity : ComponentActivity() {
             val bleMissing = missing(blePermissions())
             if (bleMissing.isEmpty()) {
                 startLogService()
+                requestBackgroundLocationIfNeeded()
             } else {
                 Toast.makeText(this, "必要な権限が許可されませんでした", Toast.LENGTH_SHORT).show()
                 Log.w("PERM", "still missing BLE perms: $bleMissing")
@@ -216,6 +218,21 @@ class MainActivity : ComponentActivity() {
                         composable("map") { MapScreen() }
                     }
                 }
+            }
+        }
+    }
+
+    private fun requestBackgroundLocationIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val granted = ContextCompat.checkSelfPermission(
+                this, android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!granted) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION),
+                    2002
+                )
             }
         }
     }

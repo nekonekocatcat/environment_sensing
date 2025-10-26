@@ -10,6 +10,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileWriter
 import java.util.*
+import kotlinx.coroutines.delay
 
 class SensorLogger(
     private val context: Context,
@@ -59,34 +60,68 @@ class SensorLogger(
             // レア環境
             val rareName = RareEnvironmentChecker.check(data)
             if (rareName != null) {
-                database.rareEnvironmentLogDao().insert(
+                val g = locationProvider.currentOrNull()
+                val lat = g?.lat
+                val lon = g?.lon
+
+                val id = database.rareEnvironmentLogDao().insert(
                     RareEnvironmentLog(
                         environmentName = rareName,
                         timestamp = timestamp,
                         latitude = lat,
                         longitude = lon
                     )
-                )
-                withContext(Dispatchers.Main) {
-                    onRareDetected?.invoke(rareName)
+                ).toInt()
+
+                if (lat == null || lon == null) {
+                    coroutineScope.launch { backfillRareLatLon(id) }
                 }
+
+                withContext(Dispatchers.Main) { onRareDetected?.invoke(rareName) }
                 return@launch
             }
 
-            // ノーマル環境
             val normalName = NormalEnvironmentChecker.check(data)
             if (normalName != null) {
-                database.normalEnvironmentLogDao().insert(
+                val g = locationProvider.currentOrNull()
+                val lat = g?.lat
+                val lon = g?.lon
+
+                val id = database.normalEnvironmentLogDao().insert(
                     NormalEnvironmentLog(
                         environmentName = normalName,
                         timestamp = timestamp,
                         latitude = lat,
                         longitude = lon
                     )
-                )
-                withContext(Dispatchers.Main) {
-                    onNormalDetected?.invoke(normalName)
+                ).toInt()
+
+                if (lat == null || lon == null) {
+                    coroutineScope.launch { backfillNormalLatLon(id) }
                 }
+
+                withContext(Dispatchers.Main) { onNormalDetected?.invoke(normalName) }
+            }
+        }
+    }
+    private suspend fun backfillRareLatLon(id: Int) {
+        repeat(5) {
+            delay(3_000)
+            val g = locationProvider.currentOrNull()
+            if (g != null) {
+                database.rareEnvironmentLogDao().updateLatLon(id, g.lat, g.lon)
+                return
+            }
+        }
+    }
+
+    private suspend fun backfillNormalLatLon(id: Int) {
+        repeat(5) {
+            delay(3_000)
+            val g = locationProvider.currentOrNull()
+            if (g != null) {
+                database.normalEnvironmentLogDao().updateLatLon(id, g.lat, g.lon)
+                return
             }
         }
     }

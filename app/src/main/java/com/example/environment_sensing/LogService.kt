@@ -39,6 +39,7 @@ class LogService : Service() {
 
     private lateinit var notificationManager: NotificationManagerCompat
     private lateinit var sensorLogger: SensorLogger
+    private lateinit var locationProvider: LocationProvider
     private val uiScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var wakeLock: PowerManager.WakeLock? = null
     private var scanJob: Job? = null
@@ -67,6 +68,8 @@ class LogService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        locationProvider = LocationProvider(applicationContext)
+        try { locationProvider.startUpdates() } catch (_: Throwable) {}
         isRunning = true
 
         val pm = getSystemService(POWER_SERVICE) as PowerManager
@@ -122,7 +125,8 @@ class LogService : Service() {
                         if (isFirst) SensorEventBus.normalFirstEvent.emit(name)
                     }
                 }
-            }
+            },
+                    locationProvider = locationProvider
         )
     }
 
