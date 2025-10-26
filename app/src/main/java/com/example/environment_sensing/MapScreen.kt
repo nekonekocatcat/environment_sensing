@@ -10,6 +10,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.maps.android.compose.*
 import androidx.compose.ui.platform.LocalContext
+import com.example.environment_sensing.data.AppDatabase
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
@@ -18,6 +19,17 @@ import com.google.android.gms.maps.model.LatLng
 fun MapScreen(vm: MapViewModel = viewModel()) {
     val pins by vm.pins.collectAsState()
     val context = LocalContext.current
+
+    LaunchedEffect(Unit) {
+        // まず足りない座標を後追い埋め
+        backfillMissingLocationsOnce(context)
+
+        // （任意）デバッグ：残り件数をログる
+        val db = AppDatabase.getInstance(context)
+        val missN = db.normalEnvironmentLogDao().countMissingNormal()
+        val missR = db.rareEnvironmentLogDao().countMissingRare()
+        android.util.Log.d("MapBackfill", "missing normal=$missN, rare=$missR")
+    }
 
     // 位置権限
     val hasFine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
