@@ -44,11 +44,11 @@ object RareEnvironmentChecker {
         }, requireDurationMillis = 60_000), // 酸欠気味の大騒ぎ
 
         RareEnvironment("焚き火レア環境", {
-            it.light in 50..150 && it.noise in 40.0..55.0 && it.tvoc >= 180
+            it.light in 50..150 && it.tvoc >= 180 && it.co2 >= 1000
         }, requireDurationMillis = 120_000), // パチパチ音＋煙イメージ
 
         RareEnvironment("電車ラッシュレア環境", {
-            it.noise >= 85 && it.co2 >= 1500 && it.temperature >= 28
+            it.tvoc >= 150 && it.co2 >= 1500 && it.temperature >= 28
         }, requireDurationMillis = 90_000), // 満員電車地獄
 
         RareEnvironment("映画館レア環境", {
