@@ -1,4 +1,3 @@
-// app/src/main/java/com/example/environment_sensing/LocationProvider.kt
 package com.example.environment_sensing
 
 import android.Manifest
