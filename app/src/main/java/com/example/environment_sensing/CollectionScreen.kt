@@ -57,6 +57,7 @@ fun CollectionScreen() {
     val rareDefs = remember { RareEnvironmentChecker.environments.map { it.name }.toSet() }
     val normalDefs = remember { NormalEnvironmentChecker.environments.map { it.name }.toSet() }
     val allEnvironments = remember { (rareDefs + normalDefs).toList() }
+    val rareTierMap = remember { RareEnvironmentChecker.environments.associate { it.name to it.tier } }
 
     var collected by remember { mutableStateOf<List<EnvironmentCollection>>(emptyList()) }
 
@@ -79,29 +80,36 @@ fun CollectionScreen() {
     val items = remember(collected) {
         allEnvironments.map { name ->
             val list = grouped[name].orEmpty()
+            val isRare = name in rareDefs
             CollectionUiItem(
                 name = name,
-                isRare = name in rareDefs,
+                isRare = isRare,
                 obtained = list.isNotEmpty(),
                 isNew = list.any { it.isNew },
                 count = list.size,
-                lastTimestamp = list.maxOfOrNull { it.timestamp }
+                lastTimestamp = list.maxOfOrNull { it.timestamp },
+                tier = if (isRare) rareTierMap[name] else null
             )
         }.sortedWith(
-            compareByDescending<CollectionUiItem> { it.isNew }
-                .thenByDescending { it.obtained }
-                .thenByDescending { it.isRare }
-                .thenBy { it.name }
+            compareBy<CollectionUiItem>(
+                { it.tier ?: Int.MAX_VALUE },
+                { if (it.isNew) 0 else 1 },
+                { if (it.obtained) 0 else 1 },
+                { it.name }
+            )
         )
     }
-
     var filter by remember { mutableStateOf(CollectionFilter.All) }
     val filtered = remember(items, filter) {
         when (filter) {
-            CollectionFilter.All -> items
-            CollectionFilter.Rare -> items.filter { it.isRare }
-            CollectionFilter.Normal -> items.filter { !it.isRare }
-            CollectionFilter.Unobtained -> items.filter { !it.obtained }
+            CollectionFilter.All         -> items
+            CollectionFilter.Rare        -> items.filter { it.isRare }
+            CollectionFilter.Normal      -> items.filter { !it.isRare }
+            CollectionFilter.Unobtained  -> items.filter { !it.obtained }
+            CollectionFilter.Tier1       -> items.filter { it.isRare && it.tier == 1 }
+            CollectionFilter.Tier2       -> items.filter { it.isRare && it.tier == 2 }
+            CollectionFilter.Tier3       -> items.filter { it.isRare && it.tier == 3 }
+            CollectionFilter.TierUltra  -> items.filter { it.isRare && it.tier == 99 }
         }
     }
 
@@ -187,16 +195,53 @@ private fun ProgressHeader(obtained: Int, total: Int) {
     }
 }
 
-enum class CollectionFilter { All, Rare, Normal, Unobtained }
+enum class CollectionFilter {
+    All, Rare, Normal, Unobtained,
+    Tier1, Tier2, Tier3, TierUltra
+}
 
 @Composable
 private fun FilterChips(current: CollectionFilter, onChange: (CollectionFilter) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        FilterChip("すべて", current == CollectionFilter.All) { onChange(CollectionFilter.All) }
-        FilterChip("レア", current == CollectionFilter.Rare) { onChange(CollectionFilter.Rare) }
-        FilterChip("ノーマル", current == CollectionFilter.Normal) { onChange(CollectionFilter.Normal) }
-        FilterChip("未取得", current == CollectionFilter.Unobtained) { onChange(CollectionFilter.Unobtained) }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+
+        // 1段目：基本フィルタ
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip("すべて",   current == CollectionFilter.All)        { onChange(CollectionFilter.All) }
+            FilterChip("レア",     current == CollectionFilter.Rare)       { onChange(CollectionFilter.Rare) }
+            FilterChip("ノーマル", current == CollectionFilter.Normal)     { onChange(CollectionFilter.Normal) }
+            FilterChip("未取得",   current == CollectionFilter.Unobtained) { onChange(CollectionFilter.Unobtained) }
+        }
+
+        // 2段目：Tierフィルタ（レア度）
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TierFilterChip("R★1", current == CollectionFilter.Tier1, Color(0xFF3F51B5)) { onChange(CollectionFilter.Tier1) }
+            TierFilterChip("R★2", current == CollectionFilter.Tier2, Color(0xFFE91E63)) { onChange(CollectionFilter.Tier2) }
+            TierFilterChip("R★3", current == CollectionFilter.Tier3, Color(0xFFFFC107)) { onChange(CollectionFilter.Tier3) }
+            TierFilterChip("Ultra", current == CollectionFilter.TierUltra, Color(0xFF7E57C2)) { onChange(CollectionFilter.TierUltra) }
+        }
     }
+}
+
+@Composable
+private fun TierFilterChip(
+    label: String,
+    selected: Boolean,
+    color: Color,
+    onClick: () -> Unit
+) {
+    AssistChip(
+        onClick = onClick,
+        label = { Text(label) },
+        leadingIcon = if (selected) {
+            { Icon(Icons.Filled.Check, contentDescription = null, tint = color) }
+        } else null,
+        border = if (selected) null else AssistChipDefaults.assistChipBorder(true),
+        colors = AssistChipDefaults.assistChipColors(
+            containerColor = if (selected) color.copy(alpha = 0.16f)
+            else MaterialTheme.colorScheme.surface,
+            labelColor     = if (selected) color else MaterialTheme.colorScheme.onSurface
+        )
+    )
 }
 
 @Composable
@@ -221,7 +266,8 @@ data class CollectionUiItem(
     val obtained: Boolean,
     val isNew: Boolean,
     val count: Int,
-    val lastTimestamp: Long?
+    val lastTimestamp: Long?,
+    val tier: Int?
 )
 
 @Composable
@@ -252,7 +298,24 @@ private fun CollectionCard(item: CollectionUiItem, onClick: () -> Unit) {
                         .background(tone)
                 )
                 Spacer(Modifier.width(8.dp))
-                if (item.isRare) { RareBadge(); Spacer(Modifier.width(8.dp)) }
+                if (item.isRare) {
+                    val label = when (item.tier) {
+                        1 -> "RARE"
+                        2 -> "R★2"
+                        3 -> "R★3"
+                        99 -> "Ultra"
+                        else -> "RARE"
+                    }
+                    val color = when (item.tier) {
+                        1 -> MaterialTheme.colorScheme.primary
+                        2 -> Color(0xFFE91E63)
+                        3 -> Color(0xFFFFC107)
+                        99 -> Color(0xFF7E57C2)
+                        else -> MaterialTheme.colorScheme.primary
+                    }
+                    TierPill(label, color)
+                    Spacer(Modifier.width(8.dp))
+                }
                 Text(
                     item.name,
                     style = MaterialTheme.typography.titleMedium,
@@ -354,16 +417,20 @@ private fun NewBadge(visible: Boolean, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun RareBadge() {
+private fun RareBadge(tier: Int?) {
+    val (label, color) = when (tier) {
+        1   -> "RARE" to MaterialTheme.colorScheme.primary
+        2   -> "RARE★2" to Color(0xFFE91E63)
+        3   -> "RARE★3" to Color(0xFFFFC107)
+        99  -> "Ultra" to Color(0xFF7E57C2)
+        else-> "RARE" to MaterialTheme.colorScheme.primary
+    }
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(7.dp))
-            .background(MaterialTheme.colorScheme.primary.copy(0.18f))
+            .background(color.copy(alpha = 0.18f))
             .padding(horizontal = 7.dp, vertical = 3.dp)
-    ) {
-        Text("RARE", color = MaterialTheme.colorScheme.primary,
-            fontSize = 11.sp, fontWeight = FontWeight.Bold)
-    }
+    ) { Text(label, color = color, fontSize = 11.sp, fontWeight = FontWeight.Bold) }
 }
 
 @Composable
@@ -373,7 +440,7 @@ private fun DetailSheet(item: CollectionUiItem) {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            if (item.isRare) RareBadge()
+            if (item.isRare) { RareBadge(item.tier); Spacer(Modifier.width(8.dp)) }
             Spacer(Modifier.width(8.dp))
             Text(item.name, style = MaterialTheme.typography.titleLarge)
         }
@@ -449,6 +516,22 @@ private fun hintFor(name: String): String = when (name) {
     "焚き火レア環境" -> "外でパチパチ音とほのかな煙の匂い。火の温かさを近くで感じるムード。🔥🌲😌"
     "電車ラッシュレア環境" -> "ぎゅうぎゅうで暑く、空気がこもりがち。通勤ラッシュの車内そのもの。🚆👥💨"
     "映画館レア環境" -> "かなり暗くて静か、人がじっと座ってる空間。上映中の映画館の雰囲気。🎬🍿🤫"
+
+    "ととのいサウナっぽいレア環境" -> "高温多湿で換気弱め。整う前後の休憩スペースも近い空気。♨️🧖"
+    "めっちゃ静かレア環境" -> "耳鳴りがしそうなくらい静か。喋らないで！🤫🔇️"
+    "焼肉屋っぽいレア環境" -> "香り・煙・賑わいが混ざる。少し暑い🥩🔥😋"
+    "山頂絶景レア環境" -> "気圧が低くひんやり。屋外で明るく、風景が開けた場所。綺麗だね⛰️🌤️"
+    "高原さわやかレア環境" -> "少し低い気圧＋涼しくて明るい。外の空気が気持ちいい。🍃☀️"
+    "まるで北極レア環境" -> "とにかく寒くて静か。屋外に近い空気感。🧊❄️"
+    "お昼の公園っぽいレア環境" -> "明るくてほどよい賑わい。外気に近い清々しさ。🏞️👨‍👩‍👧"
+    "放課後教室っぽいレア環境" -> "教室がぽつぽつ埋まり、軽い会話とCO2が少し高め。🏫📖"
+    "地下鉄ホームレア環境" -> "うなる走行音＋人工照明。ややこもった空気。🚇🔊"
+    "無響室レア環境" -> "超低騒音の特別な環境。音が吸い込まれる感じ。🔇🧪"
+    "厳冬オーロラレア環境" -> "極寒＋静けさ＋淡い明るさ。澄んだ外気。🌌❄️"
+    "真空スーパーレア環境" -> "現実では到達不可。数値的に「ほぼ0気圧」のロマン。🛰️🛑"
+    "ブラックホール直前環境" -> "暗黒＋超低圧のネタ枠。観測したら天才。🕳️😵‍💫"
+    "火星コロニーレア環境" -> "低圧・極寒・CO2多めのSF枠。宇宙飛行士なの？🚀🪐"
+
 
     // ===== ノーマル環境 =====
     "静かめ快適環境" -> "空気はさらっと、音は控えめ。おうちでひと休みしてるときの落ち着き。🌿🛋️🤫"

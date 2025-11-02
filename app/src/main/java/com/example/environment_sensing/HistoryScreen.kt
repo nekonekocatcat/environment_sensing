@@ -37,11 +37,13 @@ fun HistoryScreen() {
     val rareLogs by rareLogsFlow.collectAsState(initial = emptyList())
     val normalLogs by normalLogsFlow.collectAsState(initial = emptyList())
 
+    val rareTierMap = remember { RareEnvironmentChecker.environments.associate { it.name to it.tier } }
+
     // 1本のリストにまとめて時刻降順
     val all by remember(rareLogs, normalLogs) {
         mutableStateOf(
-            (rareLogs.map { UiLog(it.environmentName, isRare = true, timestamp = it.timestamp) } +
-                    normalLogs.map { UiLog(it.environmentName, isRare = false, timestamp = it.timestamp) })
+            (rareLogs.map { UiLog(it.environmentName, true,  it.timestamp, rareTierMap[it.environmentName]) } +
+                    normalLogs.map { UiLog(it.environmentName, false, it.timestamp, null) })
                 .sortedByDescending { it.timestamp }
         )
     }
@@ -49,9 +51,13 @@ fun HistoryScreen() {
     var filter by remember { mutableStateOf(HistoryFilter.All) }
     val filtered = remember(all, filter) {
         when (filter) {
-            HistoryFilter.All -> all
-            HistoryFilter.Rare -> all.filter { it.isRare }
-            HistoryFilter.Normal -> all.filter { !it.isRare }
+            HistoryFilter.All        -> all
+            HistoryFilter.Rare       -> all.filter { it.isRare }
+            HistoryFilter.Normal     -> all.filter { !it.isRare }
+            HistoryFilter.Tier1      -> all.filter { it.isRare && it.tier == 1 }
+            HistoryFilter.Tier2      -> all.filter { it.isRare && it.tier == 2 }
+            HistoryFilter.Tier3      -> all.filter { it.isRare && it.tier == 3 }
+            HistoryFilter.TierUltra -> all.filter { it.isRare && it.tier == 99 }
         }
     }
 
@@ -178,14 +184,26 @@ private fun SummaryHeader(rareCount: Int, normalCount: Int, total: Int) {
     }
 }
 
-private enum class HistoryFilter { All, Rare, Normal }
-
+private enum class HistoryFilter {
+    All, Rare, Normal,
+    Tier1, Tier2, Tier3, TierUltra
+}
 @Composable
 private fun FilterRow(filter: HistoryFilter, onChange: (HistoryFilter) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        SegChip("すべて", filter == HistoryFilter.All) { onChange(HistoryFilter.All) }
-        SegChip("レア", filter == HistoryFilter.Rare) { onChange(HistoryFilter.Rare) }
-        SegChip("ノーマル", filter == HistoryFilter.Normal) { onChange(HistoryFilter.Normal) }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SegChip("すべて",  filter == HistoryFilter.All)    { onChange(HistoryFilter.All) }
+            SegChip("レア",    filter == HistoryFilter.Rare)   { onChange(HistoryFilter.Rare) }
+            SegChip("ノーマル",filter == HistoryFilter.Normal) { onChange(HistoryFilter.Normal) }
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SegChip("R★1",    filter == HistoryFilter.Tier1)      { onChange(HistoryFilter.Tier1) }
+            SegChip("R★2",    filter == HistoryFilter.Tier2)      { onChange(HistoryFilter.Tier2) }
+            SegChip("R★3",    filter == HistoryFilter.Tier3)      { onChange(HistoryFilter.Tier3) }
+            SegChip("Ultra", filter == HistoryFilter.TierUltra) { onChange(HistoryFilter.TierUltra) }
+        }
     }
 }
 
@@ -221,6 +239,22 @@ private fun DateHeader(date: String) {
 @Composable
 private fun TimelineRow(item: UiLog, timeLabel: String, drawConnector: Boolean) {
     val tone = historyEnvColor(item.name).copy(alpha = if (item.isRare) 1f else 0.8f)
+
+    val badgeLabel = when (item.tier) {
+        1    -> "RARE"
+        2    -> "R★2"
+        3    -> "R★3"
+        99   -> "Ultra"
+        else -> if (item.isRare) "RARE" else "NORMAL"
+    }
+    val badgeTint = when (item.tier) {
+        1    -> MaterialTheme.colorScheme.primary
+        2    -> Color(0xFFE91E63)
+        3    -> Color(0xFFFFC107)
+        99   -> Color(0xFF7E57C2)
+        else -> if (item.isRare) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -254,7 +288,6 @@ private fun TimelineRow(item: UiLog, timeLabel: String, drawConnector: Boolean) 
 
         // カード本体
         val badgeIcon = if (item.isRare) Icons.Filled.Star else Icons.Filled.CheckCircle
-        val badgeTint = if (item.isRare) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary
         val bg = if (item.isRare)
             Brush.verticalGradient(listOf(tone.copy(0.18f), tone.copy(0.07f)))
         else
@@ -278,6 +311,10 @@ private fun TimelineRow(item: UiLog, timeLabel: String, drawConnector: Boolean) 
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(badgeIcon, null, tint = badgeTint)
                         Spacer(Modifier.width(8.dp))
+                        if (item.isRare) {
+                            TierPill(badgeLabel, badgeTint)
+                            Spacer(Modifier.width(6.dp))
+                        }
                         Text(
                             text = item.name,
                             style = MaterialTheme.typography.titleMedium,
@@ -298,6 +335,23 @@ private fun TimelineRow(item: UiLog, timeLabel: String, drawConnector: Boolean) 
                 }
             }
         }
+    }
+}
+
+@Composable
+fun TierPill(label: String, color: Color) {
+    Surface(
+        color = color.copy(alpha = 0.18f),
+        contentColor = color,
+        shape = MaterialTheme.shapes.small,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+        )
     }
 }
 
@@ -332,7 +386,8 @@ private fun historyEnvColor(name: String): Color = when (name) {
 private data class UiLog(
     val name: String,
     val isRare: Boolean,
-    val timestamp: Long
+    val timestamp: Long,
+    val tier: Int?
 )
 
 /* ---------- 絵文字/色ユーティリティ（既存の envColor を活用） ---------- */
