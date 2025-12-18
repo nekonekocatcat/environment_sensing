@@ -358,19 +358,46 @@ fun TierPill(label: String, color: Color) {
 // 履歴用の色マップ（Collection の envColor と同等）
 @Composable
 private fun historyEnvColor(name: String): Color = when (name) {
+    // ===== レア =====
     "真夏の密室レア環境" -> Color(0xFFD32F2F)
-    "熱帯低気圧レア環境"   -> Color(0xFFB71C1C)
+    "熱帯低気圧レア環境" -> Color(0xFFB71C1C)
     "クラブわいわいレア環境" -> Color(0xFF6A1B9A)
     "工事現場みたいなレア環境" -> Color(0xFF8D6E63)
-    "南国リゾートレア環境"   -> Color(0xFFFFA000)
-    "星空キャンプレア環境"   -> Color(0xFF1565C0)
+    "南国リゾートレア環境" -> Color(0xFFFFA000)
+    "星空キャンプレア環境" -> Color(0xFF1565C0)
     "勉強はかどる集中レア環境" -> Color(0xFF2E7D32)
-    "カラオケ大会レア環境"   -> Color(0xFFF06292)
-    "焚き火レア環境"         -> Color(0xFFFF7043)
-    "電車ラッシュレア環境"   -> Color(0xFFFFA726)
-    "映画館レア環境"         -> Color(0xFF455A64)
-    "調理中っぽい環境"       -> Color(0xFFFF8A65)
-    "リビングまったり環境"   -> Color(0xFF26A69A)
+    "カラオケ大会レア環境" -> Color(0xFFF06292)
+    "焚き火レア環境" -> Color(0xFFFF7043)
+    "電車ラッシュレア環境" -> Color(0xFFFFA726)
+    "映画館レア環境" -> Color(0xFF455A64)
+    "ととのいサウナっぽいレア環境" -> Color(0xFFD84315)
+    "めっちゃ静かレア環境" -> Color(0xFF455A64)
+    "まるで北極レア環境" -> Color(0xFF90CAF9)
+    "無響室レア環境" -> Color(0xFFB0BEC5)
+    "オーロラレア環境" -> Color(0xFF7E57C2)
+    "真空スーパーレア環境" -> Color(0xFF212121)
+    "ブラックホール直前環境" -> Color(0xFF000000)
+    "火星コロニーレア環境" -> Color(0xFFBF360C)
+
+    // ===== ノーマル =====
+    "静かめ快適環境" -> Color(0xFF4CAF50)
+    "リビングまったり環境" -> Color(0xFF26A69A)
+    "夜ふかしの薄暗い部屋" -> Color(0xFF7986CB)
+    "早朝の静けさ環境" -> Color(0xFF81C784)
+    "空気こもり気味環境" -> Color(0xFF90A4AE)
+    "作業はかどり環境" -> Color(0xFF66BB6A)
+    "集中できないザワザワ環境" -> Color(0xFFFF7043)
+    "明るい屋外っぽい環境" -> Color(0xFF43A047)
+    "交通量多め環境" -> Color(0xFFFFEB3B)
+    "カフェっぽい環境" -> Color(0xFF8D6E63)
+    "フードコートっぽい環境" -> Color(0xFFFFB74D)
+    "調理中っぽい環境" -> Color(0xFFFF8A65)
+    "カラカラ環境" -> Color(0xFFA1887F)
+    "じめじめ環境" -> Color(0xFF26A69A)
+    "冷房つよめ環境" -> Color(0xFF4FC3F7)
+    "暗い静か環境" -> Color(0xFF90A4AE)
+    "ざわざわ環境" -> Color(0xFFFFA000)
+    "涼しめ明るい環境" -> Color(0xFF81D4FA)
     else -> when {
         listOf("高温","真夏","熱").any { name.contains(it) } -> Color(0xFFD32F2F)
         listOf("暗","夜","星","映画").any { name.contains(it) } -> Color(0xFF3949AB)
@@ -394,20 +421,37 @@ private data class UiLog(
 
 // ざっくり雰囲気の絵文字を名前から推定
 private fun vibeHintEmoji(name: String): String = when {
-    listOf("南国","リゾート").any { name.contains(it) } -> "🏝️🌺 いい風と日差しを感じたよ"
-    listOf("星","キャンプ","夜").any { name.contains(it) } -> "🌌🔥 静かな夜の空気"
-    listOf("映画","暗").any { name.contains(it) } -> "🎬🌙 ひそひそボイスの世界"
-    listOf("電車","ラッシュ").any { name.contains(it) } -> "🚃💨 ギュッと密な感じ"
-    listOf("カラオケ").any { name.contains(it) } -> "🎤🎶 楽しそう！"
-    listOf("焚き火").any { name.contains(it) } -> "🔥🌲 ほのかな煙の香り"
-    listOf("集中","勉強").any { name.contains(it) } -> "📚🧠 ほどよい静けさ"
-    listOf("交通量").any { name.contains(it) } -> "🚗🔆 外のざわめき"
-    listOf("調理").any { name.contains(it) } -> "🍳✨ キッチンの熱気😋"
-    listOf("リビング").any { name.contains(it) } -> "🛋️☕ まったりタイム"
-    listOf("静か","ダークサイレント").any { name.contains(it) } -> "🕶️🤫 静寂に包まれた"
-    listOf("手元ライト","ライト").any { name.contains(it) } -> "🔦✨ まぶしい瞬間"
-    listOf("熱帯的気圧").any { name.contains(it) } -> "🌀😵‍💫 ちょっと暑いね"
-    listOf("クラブ","ざわざわ","うるさい").any { name.contains(it) } -> "👏🔊 にぎやか！"
-    listOf("真夏").any { name.contains(it) } -> "🥵💦 すごく暑い！！"
-    else -> "🌬️👀 空気の表情が変わったみたい"
+    // ===== レア =====
+    name.contains("南国") -> "🏝️🌺 あったかくて開放的"
+    name.contains("星空") -> "🌌✨ 静かな夜の空気"
+    name.contains("映画") -> "🎬🤫 しん…とした世界"
+    name.contains("電車") -> "🚃💨 ぎゅうぎゅう"
+    name.contains("カラオケ") -> "🎤🎶 大盛り上がり"
+    name.contains("焚き火") -> "🔥🌲 ほのかに煙"
+    name.contains("集中") -> "📚🧠 ちょうどいい静けさ"
+    name.contains("クラブ") -> "🔊🕺 たのしいね！"
+    name.contains("真夏") -> "🥵💦 あっついね〜"
+    name.contains("北極") -> "❄️🧊 ひんやり"
+    name.contains("無響室") -> "🔇🧪 音が消える"
+    name.contains("オーロラ") -> "🌈❄️ 幻想的"
+    name.contains("火星") -> "🚀🪐 異世界感"
+
+    // ===== ノーマル =====
+    name.contains("リビング") -> "🛋️☕ くつろぎ"
+    name.contains("作業") -> "💻📖 頑張ってるね！"
+    name.contains("カフェ") -> "☕📚 ゆったり"
+    name.contains("フードコート") -> "🍔👥 にぎやか"
+    name.contains("調理") -> "🍳🔥 いい匂い"
+    name.contains("早朝") -> "🌅😴 しんとした朝"
+    name.contains("夜ふかし") -> "🌙📱 静かな夜"
+    name.contains("冷房") -> "❄️🥶 ちょっと寒い"
+    name.contains("じめじめ") -> "🌧️😓 ベタっと"
+    name.contains("カラカラ") -> "😷💨 乾燥気味"
+    name.contains("交通量") -> "🚗🛣️ ザワザワ"
+    name.contains("屋外") -> "☀️🌿 明るい"
+    name.contains("ざわざわ") -> "👥🔉 落ち着かない"
+    name.contains("暗い") -> "🌙🤫 しずか"
+    name.contains("静か") -> "🌿🤫 落ち着く"
+
+    else -> "🌬️👀 空気が変わった"
 }
