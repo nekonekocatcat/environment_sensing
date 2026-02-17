@@ -13,25 +13,16 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.RequiresApi
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.*
-import com.example.environment_sensing.data.AppDatabase
-import com.example.environment_sensing.data.EnvironmentCollection
 import com.example.environment_sensing.ui.theme.Environment_sensingTheme
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
 
@@ -107,9 +98,6 @@ class MainActivity : ComponentActivity() {
 
         Log.d("PERM", "sdk=${Build.VERSION.SDK_INT}, missing=${missingPermissions()}")
 
-
-        //ここ絶対本番環境で削除して絶対に❣️
-        //applicationContext.deleteDatabase("sensor_database")
 
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()

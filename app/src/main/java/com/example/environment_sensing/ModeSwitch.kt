@@ -7,10 +7,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 
-/** 全画面で使うモード種別（公開） */
 enum class AppMode { Full, Simple }
 
-/** 「🎮 通常 / 🧪 実験」トグル（公開） */
+//数値表示のみと環境コレクションの切り替え用
 @Composable
 fun ModeToggleRow(
     current: AppMode,

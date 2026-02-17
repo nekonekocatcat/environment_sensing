@@ -32,3 +32,5 @@ class SensorDataProcessor {
         )
     }
 }
+
+//要らなそうだなーこのファイル

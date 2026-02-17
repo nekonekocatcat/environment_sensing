@@ -91,3 +91,5 @@ class BLEApi {
         leScanCallback = null
     }
 }
+
+//もう使ってないかもー
