@@ -25,14 +25,14 @@
 |18 | 涼しめ明るい環境 | ブラックホール直前環境 |
 |19 |  | 火星コロニーレア環境 |
 
-# 使用する環境センサ
+## 使用する環境センサ
 OMRON USB型環境センサを使用
 もう販売停止になってしまっています
 https://www.fa.omron.co.jp/products/family/3724/download/catalog.html
 
 <img width="300" height="300" alt="image" src="https://github.com/user-attachments/assets/0144ae3c-9312-41da-95af-77bc973c9617" />
 
-# ダウンロード方法
+## ダウンロード方法
 
 1. 前提
 - AndroidStudio
@@ -41,3 +41,22 @@ https://www.fa.omron.co.jp/products/family/3724/download/catalog.html
 がある前提でお願いします
 
 2. リポジトリをクローン
+- ターミナル上で
+```bash
+git clone https://github.com/nekonekocatcat/environment_sensing.git
+cd environment_sensing
+```
+を実行してください
+
+3. AndroidStudioで開く
+- AndroidStudio起動後，File > Openを選択する
+- クローンした environment_sensing ディレクトリを指定
+
+Gradle の同期に時間がかかるのでここで休憩してください
+
+4. Google Maps API キーを設定
+- マップ機能にGoogle MapsのAPIを使用しているため，APIキーを指定します
+- `gradle.properties` に以下を追加してください。
+```bash
+MAPS_API_KEY=YOUR_API_KEY_HERE
+```
