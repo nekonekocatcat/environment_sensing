@@ -284,7 +284,7 @@ private fun TimeChip(text: String, selected: Boolean, onClick: () -> Unit) {
     )
 }
 
-/** テキスト共有（簡易版） */
+//共有用テキスト
 fun shareMapSnapshot(context: Context, pins: List<MapPin>) {
     val rareCount = pins.count { it.isRare }
     val normalCount = pins.size - rareCount

@@ -1,7 +1,6 @@
 package com.example.environment_sensing
 
 import android.content.Context
-import android.util.Log
 import com.example.environment_sensing.data.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -9,7 +8,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileWriter
-import java.util.*
 import kotlinx.coroutines.delay
 
 class SensorLogger(

@@ -173,7 +173,6 @@ fun CollectionScreen() {
     }
 }
 
-/* ================= パーツ ================= */
 
 @Composable
 private fun ProgressHeader(obtained: Int, total: Int) {
@@ -519,7 +518,7 @@ private fun HintAccordion(
     }
 }
 
-/* =============== ヒント =============== */
+//ヒントたち
 
 private fun hintFor(name: String): String = when (name) {
     // ===== レア環境 =====

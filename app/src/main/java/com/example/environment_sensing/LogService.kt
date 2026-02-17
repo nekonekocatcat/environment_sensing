@@ -34,7 +34,7 @@ class LogService : Service() {
     }
 
     private val allowedMacs = setOf(
-        "C1:8B:A1:8E:26:FB"
+        "C1:8B:A1:8E:26:FB" //それぞれのセンサに合わせて変更してね
     )
 
     private lateinit var notificationManager: NotificationManagerCompat

@@ -1,4 +1,3 @@
-// MapIcons.kt
 package com.example.environment_sensing
 
 import android.graphics.Bitmap

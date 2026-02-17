@@ -21,8 +21,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.environment_sensing.AppMode
-import com.example.environment_sensing.ModeToggleRow
 import com.example.environment_sensing.ui.components.AutoDismissAlertDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -51,7 +49,7 @@ fun RealtimeScreen(
         )
     }
 
-// ✨ ノーマル環境ゲット
+    // ✨ ノーマル環境ゲット
     if (normalMessage.isNotEmpty() && showNormalDialog) {
         AutoDismissAlertDialog(
             title = "✨ ノーマル環境ゲット！",
