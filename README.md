@@ -32,5 +32,12 @@ https://www.fa.omron.co.jp/products/family/3724/download/catalog.html
 
 <img width="300" height="300" alt="image" src="https://github.com/user-attachments/assets/0144ae3c-9312-41da-95af-77bc973c9617" />
 
-# 
+# ダウンロード方法
 
+1. 前提
+- AndroidStudio
+- JDK17
+- 実機（またはエミュレータ）
+がある前提でお願いします
+
+2. リポジトリをクローン
