@@ -32,13 +32,14 @@ https://www.fa.omron.co.jp/products/family/3724/download/catalog.html
 
 <img width="300" height="300" alt="image" src="https://github.com/user-attachments/assets/0144ae3c-9312-41da-95af-77bc973c9617" />
 
-## ダウンロード方法
+## 起動方法
 
 1. 前提
 - AndroidStudio
 - JDK17
-- 実機（またはエミュレータ）
+- 実機
 がある前提でお願いします
+（エミュレータ使用時はメモリ不足でビルドできない場合があるので実機推奨）
 
 2. リポジトリをクローン
 - ターミナル上で
@@ -60,3 +61,48 @@ Gradle の同期に時間がかかるのでここで休憩してください
 ```bash
 MAPS_API_KEY=YOUR_API_KEY_HERE
 ```
+※ `MAPS_API_KEY` は GitHub には含まれていません  
+※ 各自で Google Cloud Console から取得してください
+
+5. Gradle を再同期
+- `gradle.properties` を編集した後、AndroidStudio 上部の **Sync Now** を押す
+- エラーが出なければ次へ進む
+
+6. 実機を接続
+- USB で Android 端末を PC に接続
+- 端末側でUSBデバッグを有効化
+- AndroidStudio のデバイス選択欄に実機が表示されるのを確認
+
+7. アプリをビルド・起動
+- AndroidStudio 上部の ▶（Run）を押す
+- 初回はビルドに時間がかかるので休憩してください
+
+8. 初期設定
+- アプリ起動後、必要な権限を許可
+  - 位置情報
+  - Bluetooth
+  - 通知（Android 13 以降）
+- 「コレクション開始」ボタンを押すと計測開始
+
+
+## アプリ構成
+
+- `LogService`
+  - バックグラウンドで BLE スキャンとセンサデータ取得を行うフォアグラウンドサービス
+- `SensorLogger`
+  - センサ値の蓄積・環境判定・DB保存を担当
+- `RareEnvironmentChecker / NormalEnvironmentChecker`
+  - センサ値から環境判定を行うロジック
+- `CollectionScreen`
+  - 獲得済み環境の一覧表示（図鑑画面）
+- `HistoryScreen`
+  - 環境獲得履歴の時系列表示
+
+## データフロー概要
+
+1. 環境センサが BLE Advertisement により 1 秒間隔でデータを送信
+2. アプリのフォアグラウンドサービスがバックグラウンドで BLE スキャンを実行
+3. 受信したバイト列をパースして温度・湿度・気圧・騒音・照度・TVOC・CO₂を取得
+4. センサ値を元にノーマル環境・レア環境を判定
+5. 判定結果を Room Database に保存
+6. コレクション画面・履歴画面に即時反映
